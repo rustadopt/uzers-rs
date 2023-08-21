@@ -106,7 +106,7 @@ impl User {
     /// assert_eq!(user.name(), OsStr::new("stevedore"));
     /// ```
     pub fn name(&self) -> &OsStr {
-        &*self.name_arc
+        &self.name_arc
     }
 
     /// Returns the ID of this user’s primary group.
@@ -220,7 +220,7 @@ impl Group {
     /// assert_eq!(group.name(), OsStr::new("database"));
     /// ```
     pub fn name(&self) -> &OsStr {
-        &*self.name_arc
+        &self.name_arc
     }
 }
 
@@ -1170,7 +1170,7 @@ pub mod os {
 
         impl GroupExt for Group {
             fn members(&self) -> &[OsString] {
-                &*self.extras.members
+                &self.extras.members
             }
 
             fn add_member<S: AsRef<OsStr> + ?Sized>(mut self, member: &S) -> Self {
