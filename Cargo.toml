@@ -1,6 +1,6 @@
 [package]
 name = "uzers"
-description = "Library for accessing Unix users and groups"
+description = "Continuation of users, a library for accessing Unix users and groups"
 
 authors = ["Sandro-Alessio Gierens <sandro@gierens.de>", "Benjamin Sago <ogham@bsago.me>"]
 documentation = "https://docs.rs/uzers/"
