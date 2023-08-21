@@ -1,14 +1,14 @@
 [package]
-name = "users"
+name = "uzers"
 description = "Library for accessing Unix users and groups"
 
-authors = ["Benjamin Sago <ogham@bsago.me>"]
-documentation = "https://docs.rs/users/"
+authors = ["Sandro-Alessio Gierens <sandro@gierens.de>", "Benjamin Sago <ogham@bsago.me>"]
+documentation = "https://docs.rs/uzers/"
 exclude = ["/.rustfmt.toml", "/.travis.yml"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/ogham/rust-users"
-version = "0.11.0"
+repository = "https://github.com/gierens/uzers-rs"
+version = "0.11.1"
 
 [features]
 default = ["cache", "mock", "logging"]
