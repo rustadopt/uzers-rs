@@ -4,7 +4,9 @@ description = "Continuation of users, a library for accessing Unix users and gro
 
 authors = ["Sandro-Alessio Gierens <sandro@gierens.de>", "Benjamin Sago <ogham@bsago.me>"]
 documentation = "https://docs.rs/uzers/"
-exclude = ["/.rustfmt.toml", "/.travis.yml"]
+exclude = [
+    "/.github",
+]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/gierens/uzers-rs"
