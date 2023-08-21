@@ -1,7 +1,7 @@
-extern crate users;
-use users::{Users, Groups, UsersCache};
-use users::os::unix::{UserExt, GroupExt};
-//use users::os::bsd::UserExt as BSDUserExt;
+extern crate uzers;
+use uzers::{Users, Groups, UsersCache};
+use uzers::os::unix::{UserExt, GroupExt};
+//use uzers::os::bsd::UserExt as BSDUserExt;
 
 extern crate env_logger;
 

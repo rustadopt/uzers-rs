@@ -1,5 +1,5 @@
-extern crate users;
-use users::{User, all_users};
+extern crate uzers;
+use uzers::{User, all_users};
 
 extern crate env_logger;
 

@@ -1,6 +1,6 @@
-extern crate users;
-use users::{get_current_uid, get_current_gid, get_effective_uid, get_effective_gid, uid_t};
-use users::switch::switch_user_group;
+extern crate uzers;
+use uzers::{get_current_uid, get_current_gid, get_effective_uid, get_effective_gid, uid_t};
+use uzers::switch::switch_user_group;
 use std::mem::drop;
 
 extern crate env_logger;
