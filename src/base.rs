@@ -1027,6 +1027,7 @@ pub mod os {
         target_os = "dragonfly",
         target_os = "openbsd",
         target_os = "netbsd",
+        target_os = "redox",
         target_os = "solaris",
         target_os = "illumos"
     ))]
@@ -1118,10 +1119,10 @@ pub mod os {
             }
         }
 
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "solaris", target_os = "illumos"))]
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "redox", target_os = "solaris", target_os = "illumos"))]
         use super::super::User;
 
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "solaris", target_os = "illumos"))]
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "redox", target_os = "solaris", target_os = "illumos"))]
         impl UserExt for User {
             fn home_dir(&self) -> &Path {
                 Path::new(&self.extras.home_dir)
@@ -1282,7 +1283,7 @@ pub mod os {
     pub type UserExtras = bsd::UserExtras;
 
     /// Any extra fields on a `User` specific to the current platform.
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "solaris", target_os = "illumos"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "redox", target_os = "solaris", target_os = "illumos"))]
     pub type UserExtras = unix::UserExtras;
 
     /// Any extra fields on a `Group` specific to the current platform.
@@ -1294,6 +1295,7 @@ pub mod os {
         target_os = "dragonfly",
         target_os = "openbsd",
         target_os = "netbsd",
+        target_os = "redox", 
         target_os = "solaris",
         target_os = "illumos"
     ))]
