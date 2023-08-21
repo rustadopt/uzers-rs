@@ -15,8 +15,8 @@
 // the code try to access the users cache *without* a Mutex, and see it
 // spew compile errors at you.
 
-extern crate users;
-use users::{Users, UsersCache, uid_t};
+extern crate uzers;
+use uzers::{Users, UsersCache, uid_t};
 
 extern crate env_logger;
 

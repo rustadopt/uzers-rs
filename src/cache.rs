@@ -10,7 +10,7 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use users::{Users, UsersCache};
+//! use uzers::{Users, UsersCache};
 //!
 //! let mut cache = UsersCache::new();
 //! let user      = cache.get_user_by_uid(502).expect("User not found");
@@ -45,7 +45,7 @@
 //! to be read at a time!
 //!
 //! ```no_run
-//! use users::{Users, Groups, UsersCache};
+//! use uzers::{Users, Groups, UsersCache};
 //!
 //! let mut cache = UsersCache::new();
 //!
@@ -153,7 +153,7 @@ impl UsersCache {
     /// # Examples
     ///
     /// ```
-    /// use users::cache::UsersCache;
+    /// use uzers::cache::UsersCache;
     ///
     /// let cache = UsersCache::new();
     /// ```
@@ -172,7 +172,7 @@ impl UsersCache {
     /// # Examples
     ///
     /// ```
-    /// use users::cache::UsersCache;
+    /// use uzers::cache::UsersCache;
     ///
     /// let cache = unsafe { UsersCache::with_all_users() };
     /// ```
