@@ -5,7 +5,6 @@
 #![warn(unreachable_pub)]
 #![warn(unused)]
 
-
 //! This is a library for getting information on Unix users and groups. It
 //! supports getting the system users, and creating your own mock tables.
 //!
@@ -123,20 +122,19 @@
 //! Use the [`mock`](mock/index.html) module to create custom tables to test
 //! your code for these edge cases.
 
-
 extern crate libc;
-pub use libc::{uid_t, gid_t};
+pub use libc::{gid_t, uid_t};
 
 mod base;
-pub use base::{User, Group, os};
-pub use base::{get_user_by_uid, get_user_by_name};
-pub use base::{get_group_by_gid, get_group_by_name};
-pub use base::{get_current_uid, get_current_username};
-pub use base::{get_effective_uid, get_effective_username};
+pub use base::{all_groups, all_users};
 pub use base::{get_current_gid, get_current_groupname};
+pub use base::{get_current_uid, get_current_username};
 pub use base::{get_effective_gid, get_effective_groupname};
+pub use base::{get_effective_uid, get_effective_username};
+pub use base::{get_group_by_gid, get_group_by_name};
+pub use base::{get_user_by_name, get_user_by_uid};
 pub use base::{get_user_groups, group_access_list};
-pub use base::{all_users, all_groups};
+pub use base::{os, Group, User};
 
 #[cfg(feature = "cache")]
 pub mod cache;
@@ -150,4 +148,4 @@ pub mod mock;
 pub mod switch;
 
 mod traits;
-pub use traits::{Users, Groups};
+pub use traits::{Groups, Users};

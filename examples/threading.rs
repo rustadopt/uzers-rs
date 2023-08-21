@@ -16,17 +16,16 @@
 // spew compile errors at you.
 
 extern crate uzers;
-use uzers::{Users, UsersCache, uid_t};
+use uzers::{uid_t, Users, UsersCache};
 
 extern crate env_logger;
 
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 const LO: uid_t = 500;
 const HI: uid_t = 510;
-
 
 fn main() {
     env_logger::init();
@@ -39,11 +38,11 @@ fn main() {
 
     // Loop over the range and query all the users in the range. Although we
     // could use the `&User` values returned, we just ignore them.
-    for uid in LO .. HI {
+    for uid in LO..HI {
         let cache = Arc::clone(&cache);
 
         thread::spawn(move || {
-            let cache = cache.lock().unwrap();  // Unlock the mutex
+            let cache = cache.lock().unwrap(); // Unlock the mutex
             let _ = cache.get_user_by_uid(uid); // Query our users cache!
         });
     }
@@ -53,12 +52,12 @@ fn main() {
 
     // Loop over the same range and print out all the users we find.
     // These users will be retrieved from the cache.
-    for uid in LO .. HI {
-        let cache = cache.lock().unwrap();             // Re-unlock the mutex
-        if let Some(u) = cache.get_user_by_uid(uid) {  // Re-query our cache!
+    for uid in LO..HI {
+        let cache = cache.lock().unwrap(); // Re-unlock the mutex
+        if let Some(u) = cache.get_user_by_uid(uid) {
+            // Re-query our cache!
             println!("User #{} is {}", u.uid(), u.name().to_string_lossy())
-        }
-        else {
+        } else {
             println!("User #{} does not exist", uid);
         }
     }

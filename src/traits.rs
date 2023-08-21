@@ -1,14 +1,12 @@
 use std::ffi::OsStr;
 use std::sync::Arc;
 
-use libc::{uid_t, gid_t};
+use libc::{gid_t, uid_t};
 
-use base::{User, Group};
-
+use base::{Group, User};
 
 /// Trait for producers of users.
 pub trait Users {
-
     /// Returns a `User` if one exists for the given user ID; otherwise, returns `None`.
     fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>>;
 
@@ -30,7 +28,6 @@ pub trait Users {
 
 /// Trait for producers of groups.
 pub trait Groups {
-
     /// Returns a `Group` if one exists for the given group ID; otherwise, returns `None`.
     fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>>;
 

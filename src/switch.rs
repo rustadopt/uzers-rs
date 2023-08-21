@@ -1,18 +1,16 @@
 //! Functions for switching the running process’s user or group.
 
+use libc::{c_int, gid_t, uid_t};
 use std::io;
-use libc::{uid_t, gid_t, c_int};
 
-use base::{get_effective_uid, get_effective_gid};
-
+use base::{get_effective_gid, get_effective_uid};
 
 // NOTE: for whatever reason, it seems these are not available in libc on BSD platforms, so they
 //       need to be included manually
-extern {
+extern "C" {
     fn setreuid(ruid: uid_t, euid: uid_t) -> c_int;
     fn setregid(rgid: gid_t, egid: gid_t) -> c_int;
 }
-
 
 /// Sets the **current user** for the running process to the one with the
 /// given user ID.
@@ -39,9 +37,9 @@ extern {
 /// ```
 pub fn set_current_uid(uid: uid_t) -> io::Result<()> {
     match unsafe { libc::setuid(uid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("setuid returned {}", n)
+        n => unreachable!("setuid returned {}", n),
     }
 }
 
@@ -70,9 +68,9 @@ pub fn set_current_uid(uid: uid_t) -> io::Result<()> {
 /// ```
 pub fn set_current_gid(gid: gid_t) -> io::Result<()> {
     match unsafe { libc::setgid(gid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("setgid returned {}", n)
+        n => unreachable!("setgid returned {}", n),
     }
 }
 
@@ -101,9 +99,9 @@ pub fn set_current_gid(gid: gid_t) -> io::Result<()> {
 /// ```
 pub fn set_effective_uid(uid: uid_t) -> io::Result<()> {
     match unsafe { libc::seteuid(uid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("seteuid returned {}", n)
+        n => unreachable!("seteuid returned {}", n),
     }
 }
 
@@ -132,9 +130,9 @@ pub fn set_effective_uid(uid: uid_t) -> io::Result<()> {
 /// ```
 pub fn set_effective_gid(gid: gid_t) -> io::Result<()> {
     match unsafe { libc::setegid(gid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("setegid returned {}", n)
+        n => unreachable!("setegid returned {}", n),
     }
 }
 
@@ -163,9 +161,9 @@ pub fn set_effective_gid(gid: gid_t) -> io::Result<()> {
 /// ```
 pub fn set_both_uid(ruid: uid_t, euid: uid_t) -> io::Result<()> {
     match unsafe { setreuid(ruid, euid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("setreuid returned {}", n)
+        n => unreachable!("setreuid returned {}", n),
     }
 }
 
@@ -194,9 +192,9 @@ pub fn set_both_uid(ruid: uid_t, euid: uid_t) -> io::Result<()> {
 /// ```
 pub fn set_both_gid(rgid: gid_t, egid: gid_t) -> io::Result<()> {
     match unsafe { setregid(rgid, egid) } {
-         0 => Ok(()),
+        0 => Ok(()),
         -1 => Err(io::Error::last_os_error()),
-         n => unreachable!("setregid returned {}", n)
+        n => unreachable!("setregid returned {}", n),
     }
 }
 

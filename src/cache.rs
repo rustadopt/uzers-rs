@@ -84,26 +84,25 @@
 //! it can be queried multiple times or go out of scope and the values it
 //! produces are not affected.
 
-use libc::{uid_t, gid_t};
+use libc::{gid_t, uid_t};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::sync::Arc;
 
-use base::{User, Group, all_users};
-use traits::{Users, Groups};
-
+use base::{all_users, Group, User};
+use traits::{Groups, Users};
 
 /// A producer of user and group instances that caches every result.
 ///
 /// For more information, see the [`users::cache` module documentation](index.html).
 pub struct UsersCache {
-    users:  BiMap<uid_t, User>,
+    users: BiMap<uid_t, User>,
     groups: BiMap<gid_t, Group>,
 
-    uid:  Cell<Option<uid_t>>,
-    gid:  Cell<Option<gid_t>>,
+    uid: Cell<Option<uid_t>>,
+    gid: Cell<Option<gid_t>>,
     euid: Cell<Option<uid_t>>,
     egid: Cell<Option<gid_t>>,
 }
@@ -116,10 +115,9 @@ pub struct UsersCache {
 /// much point offering a “User to uid” map, as the uid is present in the
 /// `User` struct!
 struct BiMap<K, V> {
-    forward:  RefCell< HashMap<K, Option<Arc<V>>> >,
-    backward: RefCell< HashMap<Arc<OsStr>, Option<K>> >,
+    forward: RefCell<HashMap<K, Option<Arc<V>>>>,
+    backward: RefCell<HashMap<Arc<OsStr>, Option<K>>>,
 }
-
 
 // Default has to be impl’d manually here, because there’s no
 // Default impl on User or Group, even though those types aren’t
@@ -128,26 +126,24 @@ impl Default for UsersCache {
     fn default() -> Self {
         Self {
             users: BiMap {
-                forward:  RefCell::new(HashMap::new()),
+                forward: RefCell::new(HashMap::new()),
                 backward: RefCell::new(HashMap::new()),
             },
 
             groups: BiMap {
-                forward:  RefCell::new(HashMap::new()),
+                forward: RefCell::new(HashMap::new()),
                 backward: RefCell::new(HashMap::new()),
             },
 
-            uid:  Cell::new(None),
-            gid:  Cell::new(None),
+            uid: Cell::new(None),
+            gid: Cell::new(None),
             euid: Cell::new(None),
             egid: Cell::new(None),
         }
     }
 }
 
-
 impl UsersCache {
-
     /// Creates a new empty cache.
     ///
     /// # Examples
@@ -182,21 +178,27 @@ impl UsersCache {
         for user in all_users() {
             let uid = user.uid();
             let user_arc = Arc::new(user);
-            cache.users.forward.borrow_mut().insert(uid, Some(Arc::clone(&user_arc)));
-            cache.users.backward.borrow_mut().insert(Arc::clone(&user_arc.name_arc), Some(uid));
+            cache
+                .users
+                .forward
+                .borrow_mut()
+                .insert(uid, Some(Arc::clone(&user_arc)));
+            cache
+                .users
+                .backward
+                .borrow_mut()
+                .insert(Arc::clone(&user_arc.name_arc), Some(uid));
         }
 
         cache
     }
 }
 
-
 // TODO: stop using ‘Arc::from’ with entry API
 // The ‘get_*_by_name’ functions below create a new Arc before even testing if
 // the user exists in the cache, essentially creating an unnecessary Arc.
 // https://internals.rust-lang.org/t/pre-rfc-abandonning-morals-in-the-name-of-performance-the-raw-entry-api/7043/51
 // https://github.com/rust-lang/rfcs/pull/1769
-
 
 impl Users for UsersCache {
     fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>> {
@@ -215,8 +217,7 @@ impl Users for UsersCache {
             let user_arc = Arc::new(user);
             entry.insert(Some(Arc::clone(&user_arc)));
             Some(user_arc)
-        }
-        else {
+        } else {
             entry.insert(None);
             None
         }
@@ -244,8 +245,7 @@ impl Users for UsersCache {
             entry.insert(Some(uid));
 
             Some(user_arc)
-        }
-        else {
+        } else {
             entry.insert(None);
             None
         }
@@ -278,7 +278,6 @@ impl Users for UsersCache {
     }
 }
 
-
 impl Groups for UsersCache {
     fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>> {
         let mut groups_forward = self.groups.forward.borrow_mut();
@@ -296,8 +295,7 @@ impl Groups for UsersCache {
             let group_arc = Arc::new(group);
             entry.insert(Some(Arc::clone(&group_arc)));
             Some(group_arc)
-        }
-        else {
+        } else {
             entry.insert(None);
             None
         }
@@ -325,8 +323,7 @@ impl Groups for UsersCache {
             entry.insert(Some(gid));
 
             Some(group_arc)
-        }
-        else {
+        } else {
             entry.insert(None);
             None
         }

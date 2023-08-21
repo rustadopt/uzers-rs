@@ -1,8 +1,7 @@
 extern crate uzers;
-use uzers::{User, all_users};
+use uzers::{all_users, User};
 
 extern crate env_logger;
-
 
 fn main() {
     env_logger::init();
@@ -11,6 +10,10 @@ fn main() {
     users.sort_by(|a, b| a.uid().cmp(&b.uid()));
 
     for user in users {
-        println!("User {} has name {}", user.uid(), user.name().to_string_lossy());
+        println!(
+            "User {} has name {}",
+            user.uid(),
+            user.name().to_string_lossy()
+        );
     }
 }
