@@ -32,7 +32,7 @@ extern {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_current_uid;
+/// use uzers::switch::set_current_uid;
 ///
 /// set_current_uid(1001);
 /// // current user ID is 1001
@@ -63,7 +63,7 @@ pub fn set_current_uid(uid: uid_t) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_current_gid;
+/// use uzers::switch::set_current_gid;
 ///
 /// set_current_gid(1001);
 /// // current group ID is 1001
@@ -94,7 +94,7 @@ pub fn set_current_gid(gid: gid_t) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_effective_uid;
+/// use uzers::switch::set_effective_uid;
 ///
 /// set_effective_uid(1001);
 /// // current effective user ID is 1001
@@ -125,7 +125,7 @@ pub fn set_effective_uid(uid: uid_t) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_effective_gid;
+/// use uzers::switch::set_effective_gid;
 ///
 /// set_effective_gid(1001);
 /// // current effective group ID is 1001
@@ -156,7 +156,7 @@ pub fn set_effective_gid(gid: gid_t) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_both_uid;
+/// use uzers::switch::set_both_uid;
 ///
 /// set_both_uid(1001, 1001);
 /// // current user ID and effective user ID are 1001
@@ -187,7 +187,7 @@ pub fn set_both_uid(ruid: uid_t, euid: uid_t) -> io::Result<()> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::set_both_gid;
+/// use uzers::switch::set_both_gid;
 ///
 /// set_both_gid(1001, 1001);
 /// // current user ID and effective group ID are 1001
@@ -243,7 +243,7 @@ impl Drop for SwitchUserGuard {
 /// # Examples
 ///
 /// ```no_run
-/// use users::switch::switch_user_group;
+/// use uzers::switch::switch_user_group;
 /// use std::mem::drop;
 ///
 /// {

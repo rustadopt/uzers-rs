@@ -41,7 +41,7 @@
 //! Here is a complete example that prints out the current user’s name:
 //!
 //! ```
-//! use users::{get_user_by_uid, get_current_uid};
+//! use uzers::{get_user_by_uid, get_current_uid};
 //!
 //! let user = get_user_by_uid(get_current_uid()).unwrap();
 //! println!("Hello, {}!", user.name().to_string_lossy());
@@ -75,7 +75,7 @@
 //! same names as the ones from earlier. For example:
 //!
 //! ```
-//! use users::{Users, Groups, UsersCache};
+//! use uzers::{Users, Groups, UsersCache};
 //!
 //! let mut cache = UsersCache::new();
 //! let uid = cache.get_current_uid();
@@ -100,7 +100,7 @@
 //! And again, a complete example:
 //!
 //! ```no_run
-//! use users::{Users, Groups, UsersCache};
+//! use uzers::{Users, Groups, UsersCache};
 //!
 //! let mut cache = UsersCache::new();
 //! let group = cache.get_group_by_name("admin").expect("No such group 'admin'!");

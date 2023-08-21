@@ -69,7 +69,7 @@ impl User {
     /// # Examples
     ///
     /// ```
-    /// use users::User;
+    /// use uzers::User;
     ///
     /// let user = User::new(501, "stevedore", 100);
     /// ```
@@ -85,7 +85,7 @@ impl User {
     /// # Examples
     ///
     /// ```
-    /// use users::User;
+    /// use uzers::User;
     ///
     /// let user = User::new(501, "stevedore", 100);
     /// assert_eq!(user.uid(), 501);
@@ -100,7 +100,7 @@ impl User {
     ///
     /// ```
     /// use std::ffi::OsStr;
-    /// use users::User;
+    /// use uzers::User;
     ///
     /// let user = User::new(501, "stevedore", 100);
     /// assert_eq!(user.name(), OsStr::new("stevedore"));
@@ -114,7 +114,7 @@ impl User {
     /// # Examples
     ///
     /// ```
-    /// use users::User;
+    /// use uzers::User;
     ///
     /// let user = User::new(501, "stevedore", 100);
     /// assert_eq!(user.primary_group_id(), 100);
@@ -133,7 +133,7 @@ impl User {
     /// # Examples
     ///
     /// ```no_run
-    /// use users::User;
+    /// use uzers::User;
     ///
     /// let user = User::new(501, "stevedore", 100);
     /// for group in user.groups().expect("User not found") {
@@ -183,7 +183,7 @@ impl Group {
     /// # Examples
     ///
     /// ```
-    /// use users::Group;
+    /// use uzers::Group;
     ///
     /// let group = Group::new(102, "database");
     /// ```
@@ -199,7 +199,7 @@ impl Group {
     /// # Examples
     ///
     /// ```
-    /// use users::Group;
+    /// use uzers::Group;
     ///
     /// let group = Group::new(102, "database");
     /// assert_eq!(group.gid(), 102);
@@ -214,7 +214,7 @@ impl Group {
     ///
     /// ```
     /// use std::ffi::OsStr;
-    /// use users::Group;
+    /// use uzers::Group;
     ///
     /// let group = Group::new(102, "database");
     /// assert_eq!(group.name(), OsStr::new("database"));
@@ -316,7 +316,7 @@ unsafe fn members(groups: *mut *mut c_char) -> Vec<OsString> {
 /// # Examples
 ///
 /// ```
-/// use users::get_user_by_uid;
+/// use uzers::get_user_by_uid;
 ///
 /// match get_user_by_uid(501) {
 ///     Some(user) => println!("Found user {:?}", user.name()),
@@ -369,7 +369,7 @@ pub fn get_user_by_uid(uid: uid_t) -> Option<User> {
 /// # Examples
 ///
 /// ```
-/// use users::get_user_by_name;
+/// use uzers::get_user_by_name;
 ///
 /// match get_user_by_name("stevedore") {
 ///     Some(user) => println!("Found user #{}", user.uid()),
@@ -431,7 +431,7 @@ pub fn get_user_by_name<S: AsRef<OsStr> + ?Sized>(username: &S) -> Option<User> 
 /// # Examples
 ///
 /// ```
-/// use users::get_group_by_gid;
+/// use uzers::get_group_by_gid;
 ///
 /// match get_group_by_gid(102) {
 ///     Some(group) => println!("Found group {:?}", group.name()),
@@ -484,7 +484,7 @@ pub fn get_group_by_gid(gid: gid_t) -> Option<Group> {
 /// # Examples
 ///
 /// ```
-/// use users::get_group_by_name;
+/// use uzers::get_group_by_name;
 ///
 /// match get_group_by_name("db-access") {
 ///     Some(group) => println!("Found group #{}", group.gid()),
@@ -545,7 +545,7 @@ pub fn get_group_by_name<S: AsRef<OsStr> + ?Sized>(groupname: &S) -> Option<Grou
 /// # Examples
 ///
 /// ```
-/// use users::get_current_uid;
+/// use uzers::get_current_uid;
 ///
 /// println!("The ID of the current user is {}", get_current_uid());
 /// ```
@@ -569,7 +569,7 @@ pub fn get_current_uid() -> uid_t {
 /// # Examples
 ///
 /// ```
-/// use users::get_current_username;
+/// use uzers::get_current_username;
 ///
 /// match get_current_username() {
 ///     Some(uname) => println!("Running as user with name {:?}", uname),
@@ -592,7 +592,7 @@ pub fn get_current_username() -> Option<OsString> {
 /// # Examples
 ///
 /// ```
-/// use users::get_effective_uid;
+/// use uzers::get_effective_uid;
 ///
 /// println!("The ID of the effective user is {}", get_effective_uid());
 /// ```
@@ -613,7 +613,7 @@ pub fn get_effective_uid() -> uid_t {
 /// # Examples
 ///
 /// ```
-/// use users::get_effective_username;
+/// use uzers::get_effective_username;
 ///
 /// match get_effective_username() {
 ///     Some(uname) => println!("Running as effective user with name {:?}", uname),
@@ -636,7 +636,7 @@ pub fn get_effective_username() -> Option<OsString> {
 /// # Examples
 ///
 /// ```
-/// use users::get_current_gid;
+/// use uzers::get_current_gid;
 ///
 /// println!("The ID of the current group is {}", get_current_gid());
 /// ```
@@ -657,7 +657,7 @@ pub fn get_current_gid() -> gid_t {
 /// # Examples
 ///
 /// ```
-/// use users::get_current_groupname;
+/// use uzers::get_current_groupname;
 ///
 /// match get_current_groupname() {
 ///     Some(gname) => println!("Running as group with name {:?}", gname),
@@ -680,7 +680,7 @@ pub fn get_current_groupname() -> Option<OsString> {
 /// # Examples
 ///
 /// ```
-/// use users::get_effective_gid;
+/// use uzers::get_effective_gid;
 ///
 /// println!("The ID of the effective group is {}", get_effective_gid());
 /// ```
@@ -701,7 +701,7 @@ pub fn get_effective_gid() -> gid_t {
 /// # Examples
 ///
 /// ```
-/// use users::get_effective_groupname;
+/// use uzers::get_effective_groupname;
 ///
 /// match get_effective_groupname() {
 ///     Some(gname) => println!("Running as effective group with name {:?}", gname),
@@ -729,7 +729,7 @@ pub fn get_effective_groupname() -> Option<OsString> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::group_access_list;
+/// use uzers::group_access_list;
 ///
 /// for group in group_access_list().expect("Error looking up groups") {
 ///     println!("Process can access group #{} ({:?})", group.gid(), group.name());
@@ -768,7 +768,7 @@ pub fn group_access_list() -> io::Result<Vec<Group>> {
 /// # Examples
 ///
 /// ```no_run
-/// use users::get_user_groups;
+/// use uzers::get_user_groups;
 ///
 /// for group in get_user_groups("stevedore", 1001).expect("Error looking up groups") {
 ///     println!("User is a member of group #{} ({:?})", group.gid(), group.name());
@@ -849,7 +849,7 @@ struct AllUsers;
 /// # Examples
 ///
 /// ```
-/// use users::all_users;
+/// use uzers::all_users;
 ///
 /// let iter = unsafe { all_users() };
 /// for user in iter {
@@ -939,7 +939,7 @@ struct AllGroups;
 /// # Examples
 ///
 /// ```
-/// use users::all_groups;
+/// use uzers::all_groups;
 ///
 /// let iter = unsafe { all_groups() };
 /// for group in iter {
