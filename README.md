@@ -1,4 +1,6 @@
-# rust-users [![users on crates.io][crates-badge]][crates-url] [![Minimum Rust Version 1.31.0][rustc-badge]][rustc-url] [![Build status][travis-badge]][travis-url]
+# uzers-rs
+
+<!-- [![uzers on crates.io][crates-badge]][crates-url] [![Minimum Rust Version 1.31.0][rustc-badge]][rustc-url] [![Build status][travis-badge]][travis-url]
 
 [crates-badge]: https://meritbadge.herokuapp.com/users
 [crates-url]: https://crates.io/crates/users
@@ -6,11 +8,13 @@
 [travis-url]: https://travis-ci.org/github/ogham/rust-users
 [rustc-badge]: https://img.shields.io/badge/rustc-1.31+-lightgray.svg
 [rustc-url]: https://blog.rust-lang.org/2018/12/06/Rust-1.31-and-rust-2018.html
+-->
 
+Continuation of the unmaintained [users](https://github.com/ogham/rust-users).
 This is a library for accessing Unix users and groups.
 It supports getting the system users and groups, storing them in a cache, and creating your own mock tables.
 
-### [View the Rustdoc](https://docs.rs/users)
+<!-- ### [View the Rustdoc](https://docs.rs/uzers) -->
 
 
 # Installation
@@ -19,10 +23,10 @@ This crate works with [Cargo](https://crates.io). Add the following to your `Car
 
 ```toml
 [dependencies]
-users = "0.11"
+uzers = "0.11.1"
 ```
 
-The earliest version of Rust that this crate is tested against is [Rust v1.31.0][rustc-url].
+<!-- The earliest version of Rust that this crate is tested against is [Rust v1.31.0][rustc-url]. -->
 
 
 # Usage
@@ -50,7 +54,7 @@ A `User` has the following accessors:
 Here is a complete example that prints out the current user’s name:
 
 ```rust
-use users::{get_user_by_uid, get_current_uid};
+use uzers::{get_user_by_uid, get_current_uid};
 
 let user = get_user_by_uid(get_current_uid()).unwrap();
 println!("Hello, {}!", user.name());
@@ -74,7 +78,7 @@ To introduce a cache, create a new `UsersCache` and call the same methods on it.
 For example:
 
 ```rust
-use users::{Users, Groups, UsersCache};
+use uzers::{Users, Groups, UsersCache};
 
 let mut cache = UsersCache::new();
 let uid = cache.get_current_uid();
@@ -97,7 +101,7 @@ A `Group` has the following accessors:
 And again, a complete example:
 
 ```rust
-use users::{Users, Groups, UsersCache};
+use uzers::{Users, Groups, UsersCache};
 
 let mut cache = UsersCache::new();
 let group = cache.get_group_by_name("admin").expect("No such group 'admin'!");
@@ -129,8 +133,8 @@ Aside from that, you can add users and groups with `add_user` and `add_group` to
 
 ```rust
 use std::sync::Arc;
-use users::mock::{MockUsers, User, Group};
-use users::os::unix::{UserExt, GroupExt};
+use uzers::mock::{MockUsers, User, Group};
+use uzers::os::unix::{UserExt, GroupExt};
 
 let mut users = MockUsers::with_current_uid(1000);
 let bobbins = User::new(1000, "Bobbins", 1000).with_home_dir("/home/bobbins");
@@ -150,9 +154,9 @@ Here’s a complete example:
 
 ```rust
 use std::sync::Arc;
-use users::{Users, UsersCache, User};
-use users::os::unix::UserExt;
-use users::mock::MockUsers;
+use uzers::{Users, UsersCache, User};
+use uzers::os::unix::UserExt;
+use uzers::mock::MockUsers;
 
 fn print_current_username<U: Users>(users: &mut U) {
     println!("Current user: {:?}", users.get_current_username());
