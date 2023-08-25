@@ -9,7 +9,7 @@ exclude = [
 ]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/gierens/uzers-rs"
+repository = "https://github.com/rustadopt/uzers-rs"
 version = "0.11.1"
 
 [features]
