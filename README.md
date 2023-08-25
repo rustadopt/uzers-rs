@@ -10,7 +10,9 @@
 [rustc-url]: https://blog.rust-lang.org/2018/12/06/Rust-1.31-and-rust-2018.html
 -->
 
-Continuation of the unmaintained [users](https://github.com/ogham/rust-users).
+Adoption and continuation of the unmaintained [ogham/rust-users](https://github.com/ogham/rust-users) crate.
+Big shout-out to its creator [Benjamin Sago](https://github.com/ogham).
+
 This is a library for accessing Unix users and groups.
 It supports getting the system users and groups, storing them in a cache, and creating your own mock tables.
 
