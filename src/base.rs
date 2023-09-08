@@ -1036,7 +1036,8 @@ pub mod os {
         target_os = "netbsd",
         target_os = "redox",
         target_os = "solaris",
-        target_os = "illumos"
+        target_os = "illumos",
+        target_os = "haiku"
     ))]
     pub mod unix {
         use std::ffi::{OsStr, OsString};
@@ -1132,7 +1133,8 @@ pub mod os {
             target_os = "android",
             target_os = "redox",
             target_os = "solaris",
-            target_os = "illumos"
+            target_os = "illumos",
+            target_os = "haiku"
         ))]
         use super::super::User;
 
@@ -1141,7 +1143,8 @@ pub mod os {
             target_os = "android",
             target_os = "redox",
             target_os = "solaris",
-            target_os = "illumos"
+            target_os = "illumos",
+            target_os = "haiku"
         ))]
         impl UserExt for User {
             fn home_dir(&self) -> &Path {
@@ -1319,7 +1322,8 @@ pub mod os {
         target_os = "android",
         target_os = "redox",
         target_os = "solaris",
-        target_os = "illumos"
+        target_os = "illumos",
+        target_os = "haiku"
     ))]
     pub type UserExtras = unix::UserExtras;
 
@@ -1334,7 +1338,8 @@ pub mod os {
         target_os = "netbsd",
         target_os = "redox",
         target_os = "solaris",
-        target_os = "illumos"
+        target_os = "illumos",
+        target_os = "haiku"
     ))]
     pub type GroupExtras = unix::GroupExtras;
 }
