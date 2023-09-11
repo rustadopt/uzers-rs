@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.3] - 2023-09-11
+
+### Bug Fixes
+- Fix unaligned pointer in base::members function
+
+### Features
+- Add haiku support
+
+### CI
+- Bump actions/checkout from 3 to 4
+
+
+## [0.11.2] - 2023-08-25
+This just updates the repository URL as we moved to the newly created
+rustadopt organization on Github.
+
+
 ## [0.11.1] - 2023-08-21
 
 This is the first version of uzers which continues the unmaintained
