@@ -302,10 +302,10 @@ unsafe fn members(groups: *mut *mut c_char) -> Vec<OsString> {
     for i in 0.. {
         let username = groups.offset(i);
 
-        if username.is_null() || (*username).is_null() {
+        if username.is_null() || username.read_unaligned().is_null() {
             break;
         } else {
-            members.push(from_raw_buf(*username));
+            members.push(from_raw_buf(username.read_unaligned()));
         }
     }
 
