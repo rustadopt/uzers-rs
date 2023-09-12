@@ -36,6 +36,7 @@
 //! - **uid:** The user’s ID
 //! - **name:** The user’s name
 //! - **primary_group:** The ID of this user’s primary group
+//! - [OS-specific extensions](os/index.html) such as home directories
 //!
 //! Here is a complete example that prints out the current user’s name:
 //!
@@ -95,6 +96,7 @@
 //!
 //! - **gid:** The group’s ID
 //! - **name:** The group’s name
+//! - [OS-specific extensions](os/index.html) such as lists of members
 //!
 //! And again, a complete example:
 //!
