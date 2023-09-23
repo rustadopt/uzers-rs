@@ -89,6 +89,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use base::{all_users, Group, User};
@@ -97,9 +98,10 @@ use traits::{Groups, Users};
 /// A producer of user and group instances that caches every result.
 ///
 /// For more information, see the [`users::cache` module documentation](index.html).
+#[derive(Default)]
 pub struct UsersCache {
-    users: BiMap<uid_t, User>,
-    groups: BiMap<gid_t, Group>,
+    users: RefCell<IdNameMap<uid_t, Arc<OsStr>, Arc<User>>>,
+    groups: RefCell<IdNameMap<gid_t, Arc<OsStr>, Arc<Group>>>,
 
     uid: Cell<Option<uid_t>>,
     gid: Cell<Option<gid_t>>,
@@ -114,31 +116,38 @@ pub struct UsersCache {
 /// only want to search based on usernames and group names. There wouldn’t be
 /// much point offering a “User to uid” map, as the uid is present in the
 /// `User` struct!
-struct BiMap<K, V> {
-    forward: RefCell<HashMap<K, Option<Arc<V>>>>,
-    backward: RefCell<HashMap<Arc<OsStr>, Option<K>>>,
+struct IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
+    forward: HashMap<I, Option<V>>,
+    backward: HashMap<N, Option<I>>,
 }
 
-// Default has to be impl’d manually here, because there’s no
-// Default impl on User or Group, even though those types aren’t
-// needed to produce a default instance of any HashMaps...
-impl Default for UsersCache {
+impl<I, N, V> IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
+    /// Creates a new entry.
+    fn insert(&mut self, id: I, name: N, value: V) {
+        self.forward.insert(id, Some(value));
+        self.backward.insert(name, Some(id));
+    }
+}
+
+// Cannot use `#[derive(Default)]` for `IdNameMap` because [`HashMap`] requires
+// some of its types to implement [`Default`].
+impl<I, N, V> Default for IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
     fn default() -> Self {
         Self {
-            users: BiMap {
-                forward: RefCell::new(HashMap::new()),
-                backward: RefCell::new(HashMap::new()),
-            },
-
-            groups: BiMap {
-                forward: RefCell::new(HashMap::new()),
-                backward: RefCell::new(HashMap::new()),
-            },
-
-            uid: Cell::new(None),
-            gid: Cell::new(None),
-            euid: Cell::new(None),
-            egid: Cell::new(None),
+            forward: HashMap::new(),
+            backward: HashMap::new(),
         }
     }
 }
@@ -178,16 +187,11 @@ impl UsersCache {
         for user in all_users() {
             let uid = user.uid();
             let user_arc = Arc::new(user);
-            cache
-                .users
-                .forward
-                .borrow_mut()
-                .insert(uid, Some(Arc::clone(&user_arc)));
-            cache
-                .users
-                .backward
-                .borrow_mut()
-                .insert(Arc::clone(&user_arc.name_arc), Some(uid));
+            cache.users.borrow_mut().insert(
+                uid,
+                Arc::clone(&user_arc.name_arc),
+                Arc::clone(&user_arc),
+            );
         }
 
         cache
@@ -202,20 +206,20 @@ impl UsersCache {
 
 impl Users for UsersCache {
     fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>> {
-        let mut users_forward = self.users.forward.borrow_mut();
+        let mut users = self.users.borrow_mut();
 
-        let entry = match users_forward.entry(uid) {
+        let entry = match users.forward.entry(uid) {
             Vacant(e) => e,
             Occupied(e) => return e.get().as_ref().map(Arc::clone),
         };
 
         if let Some(user) = super::get_user_by_uid(uid) {
             let newsername = Arc::clone(&user.name_arc);
-            let mut users_backward = self.users.backward.borrow_mut();
-            users_backward.insert(newsername, Some(uid));
-
             let user_arc = Arc::new(user);
+
             entry.insert(Some(Arc::clone(&user_arc)));
+            users.backward.insert(newsername, Some(uid));
+
             Some(user_arc)
         } else {
             entry.insert(None);
@@ -224,15 +228,12 @@ impl Users for UsersCache {
     }
 
     fn get_user_by_name<S: AsRef<OsStr> + ?Sized>(&self, username: &S) -> Option<Arc<User>> {
-        let mut users_backward = self.users.backward.borrow_mut();
+        let mut users = self.users.borrow_mut();
 
-        let entry = match users_backward.entry(Arc::from(username.as_ref())) {
+        let entry = match users.backward.entry(Arc::from(username.as_ref())) {
             Vacant(e) => e,
             Occupied(e) => {
-                return (*e.get()).and_then(|uid| {
-                    let users_forward = self.users.forward.borrow_mut();
-                    users_forward[&uid].as_ref().map(Arc::clone)
-                })
+                return (*e.get()).and_then(|uid| users.forward[&uid].as_ref().map(Arc::clone))
             }
         };
 
@@ -240,9 +241,8 @@ impl Users for UsersCache {
             let uid = user.uid();
             let user_arc = Arc::new(user);
 
-            let mut users_forward = self.users.forward.borrow_mut();
-            users_forward.insert(uid, Some(Arc::clone(&user_arc)));
             entry.insert(Some(uid));
+            users.forward.insert(uid, Some(Arc::clone(&user_arc)));
 
             Some(user_arc)
         } else {
@@ -280,20 +280,20 @@ impl Users for UsersCache {
 
 impl Groups for UsersCache {
     fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>> {
-        let mut groups_forward = self.groups.forward.borrow_mut();
+        let mut groups = self.groups.borrow_mut();
 
-        let entry = match groups_forward.entry(gid) {
+        let entry = match groups.forward.entry(gid) {
             Vacant(e) => e,
             Occupied(e) => return e.get().as_ref().map(Arc::clone),
         };
 
         if let Some(group) = super::get_group_by_gid(gid) {
             let new_group_name = Arc::clone(&group.name_arc);
-            let mut groups_backward = self.groups.backward.borrow_mut();
-            groups_backward.insert(new_group_name, Some(gid));
-
             let group_arc = Arc::new(group);
+
             entry.insert(Some(Arc::clone(&group_arc)));
+            groups.backward.insert(new_group_name, Some(gid));
+
             Some(group_arc)
         } else {
             entry.insert(None);
@@ -302,15 +302,12 @@ impl Groups for UsersCache {
     }
 
     fn get_group_by_name<S: AsRef<OsStr> + ?Sized>(&self, group_name: &S) -> Option<Arc<Group>> {
-        let mut groups_backward = self.groups.backward.borrow_mut();
+        let mut groups = self.groups.borrow_mut();
 
-        let entry = match groups_backward.entry(Arc::from(group_name.as_ref())) {
+        let entry = match groups.backward.entry(Arc::from(group_name.as_ref())) {
             Vacant(e) => e,
             Occupied(e) => {
-                return (*e.get()).and_then(|gid| {
-                    let groups_forward = self.groups.forward.borrow_mut();
-                    groups_forward[&gid].as_ref().cloned()
-                });
+                return (*e.get()).and_then(|gid| groups.forward[&gid].as_ref().cloned())
             }
         };
 
@@ -318,9 +315,8 @@ impl Groups for UsersCache {
             let group_arc = Arc::new(group.clone());
             let gid = group.gid();
 
-            let mut groups_forward = self.groups.forward.borrow_mut();
-            groups_forward.insert(gid, Some(Arc::clone(&group_arc)));
             entry.insert(Some(gid));
+            groups.forward.insert(gid, Some(Arc::clone(&group_arc)));
 
             Some(group_arc)
         } else {
