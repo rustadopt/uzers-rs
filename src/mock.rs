@@ -58,11 +58,12 @@
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub use base::{Group, User};
 pub use libc::{gid_t, uid_t};
-pub use traits::{Groups, Users};
+pub use traits::{AllUsers, Groups, Users};
 
 /// A mocking users table that you can add your own users and groups to.
 pub struct MockUsers {
@@ -147,6 +148,17 @@ impl Groups for MockUsers {
 
     fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
         self.groups.get(&self.uid).map(|u| Arc::clone(&u.name_arc))
+    }
+}
+
+impl AllUsers for MockUsers {
+    type UserIter<'a> = std::iter::Map<
+        std::collections::hash_map::Values<'a, uid_t, Arc<User>>,
+        for<'b> fn(&'b Arc<User>) -> &'b User,
+    >;
+
+    fn get_all_users(&self) -> Self::UserIter<'_> {
+        self.users.values().map(Arc::deref)
     }
 }
 

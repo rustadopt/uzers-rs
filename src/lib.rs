@@ -143,6 +143,7 @@ pub mod cache;
 
 #[cfg(feature = "cache")]
 pub use cache::UsersCache;
+pub use cache::UsersSnapshot;
 
 #[cfg(feature = "mock")]
 pub mod mock;
@@ -150,4 +151,4 @@ pub mod mock;
 pub mod switch;
 
 mod traits;
-pub use traits::{Groups, Users};
+pub use traits::{AllUsers, Groups, Users};

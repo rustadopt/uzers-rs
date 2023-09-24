@@ -46,3 +46,14 @@ pub trait Groups {
     /// Returns the effective group name.
     fn get_effective_groupname(&self) -> Option<Arc<OsStr>>;
 }
+
+/// Trait for providers of user iterators.
+pub trait AllUsers {
+    /// [`User`] iterator returned by [`get_all_users`][Self::get_all_users].
+    type UserIter<'a>: Iterator<Item = &'a User>
+    where
+        Self: 'a;
+
+    /// Creates a new iterator over every user present on the system.
+    fn get_all_users(&self) -> Self::UserIter<'_>;
+}

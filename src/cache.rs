@@ -90,10 +90,11 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::hash::Hash;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use base::{all_users, Group, User};
-use traits::{Groups, Users};
+use traits::{AllUsers, Groups, Users};
 
 /// A producer of user and group instances that caches every result.
 ///
@@ -349,5 +350,128 @@ impl Groups for UsersCache {
     fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
         let gid = self.get_effective_gid();
         self.get_group_by_gid(gid).map(|g| Arc::clone(&g.name_arc))
+    }
+}
+
+/// A container of user instances.
+///
+/// `UsersSnapshot` collects system user data eagerly. See [`UsersCache`] for
+/// a lazy cache.
+#[derive(Default)]
+pub struct UsersSnapshot {
+    users: IdNameMap<uid_t, Arc<OsStr>, Arc<User>>,
+
+    uid: uid_t,
+    euid: uid_t,
+}
+
+impl UsersSnapshot {
+    /// Creates a new snapshot containing provided users.
+    pub(crate) fn from<U>(users: U, current_uid: uid_t, effective_uid: uid_t) -> Self
+    where
+        U: Iterator<Item = User>,
+    {
+        let mut user_map = IdNameMap::default();
+
+        for user in users {
+            user_map.insert(user.uid(), Arc::clone(&user.name_arc), Arc::from(user));
+        }
+
+        Self {
+            users: user_map,
+            uid: current_uid,
+            euid: effective_uid,
+        }
+    }
+
+    /// Creates a new snapshot containing all system users that pass the filter.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// // Exclude Linux system users
+    /// let snapshot = unsafe { UsersSnapshot::filtered(|u| u.uid() >= 1000) };
+    /// ```
+    pub unsafe fn filtered<F>(filter: F) -> Self
+    where
+        F: FnMut(&User) -> bool,
+    {
+        Self::from(
+            all_users().filter(filter),
+            super::get_current_uid(),
+            super::get_effective_uid(),
+        )
+    }
+
+    /// Creates a new snapshot containing all system users.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// let snapshot = unsafe { UsersSnapshot::new() };
+    /// ```
+    pub unsafe fn new() -> Self {
+        Self::filtered(|_| true)
+    }
+}
+
+impl AllUsers for UsersSnapshot {
+    type UserIter<'a> = std::iter::FilterMap<
+        std::collections::hash_map::Values<'a, uid_t, Option<Arc<User>>>,
+        for<'b> fn(&'b Option<Arc<User>>) -> Option<&'b User>,
+    >;
+
+    fn get_all_users(&self) -> Self::UserIter<'_> {
+        fn get_user(x: &Option<Arc<User>>) -> Option<&User> {
+            x.as_ref().map(Arc::deref)
+        }
+
+        self.users.forward.values().filter_map(get_user)
+    }
+}
+
+impl Users for UsersSnapshot {
+    fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>> {
+        self.users.forward.get(&uid)?.as_ref().cloned()
+    }
+
+    fn get_user_by_name<S: AsRef<OsStr> + ?Sized>(&self, username: &S) -> Option<Arc<User>> {
+        let name_arc = Arc::from(username.as_ref());
+        let uid = self.users.backward.get(&name_arc)?.as_ref()?;
+        self.get_user_by_uid(*uid)
+    }
+
+    fn get_current_uid(&self) -> uid_t {
+        self.uid
+    }
+
+    fn get_current_username(&self) -> Option<Arc<OsStr>> {
+        self.get_user_by_uid(self.uid)
+            .map(|u| Arc::clone(&u.name_arc))
+    }
+
+    fn get_effective_uid(&self) -> uid_t {
+        self.euid
+    }
+
+    fn get_effective_username(&self) -> Option<Arc<OsStr>> {
+        self.get_user_by_uid(self.euid)
+            .map(|u| Arc::clone(&u.name_arc))
     }
 }
