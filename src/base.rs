@@ -1070,6 +1070,14 @@ pub mod os {
             /// Can be used to construct tests users, which by default come with a
             /// dummy password field.
             fn with_password<S: AsRef<OsStr> + ?Sized>(self, password: &S) -> Self;
+
+            /// Returns the user's GECOS comment
+            fn gecos(&self) -> &OsStr;
+
+            /// Sets this user's GECOS comment to the given string.
+            /// Can be used to construct tests users, which by default come with a
+            /// dummy GECOS field.
+            fn with_gecos<S: AsRef<OsStr> + ?Sized>(self, gecos: &S) -> Self;
         }
 
         /// Unix-specific extensions for `Group`s.
@@ -1093,6 +1101,9 @@ pub mod os {
 
             /// The user’s encrypted password.
             pub password: OsString,
+
+            /// The user's GECOS comment
+            pub gecos: OsString,
         }
 
         impl Default for UserExtras {
@@ -1101,6 +1112,7 @@ pub mod os {
                     home_dir: "/var/empty".into(),
                     shell: "/bin/false".into(),
                     password: "*".into(),
+                    gecos: "".into(),
                 }
             }
         }
@@ -1118,11 +1130,13 @@ pub mod os {
                     let home_dir = from_raw_buf::<OsString>(passwd.pw_dir).into();
                     let shell = from_raw_buf::<OsString>(passwd.pw_shell).into();
                     let password = from_raw_buf::<OsString>(passwd.pw_passwd);
+                    let gecos = from_raw_buf::<OsString>(passwd.pw_gecos);
 
                     Self {
                         home_dir,
                         shell,
                         password,
+                        gecos,
                     }
                 }
             }
@@ -1171,6 +1185,15 @@ pub mod os {
 
             fn with_password<S: AsRef<OsStr> + ?Sized>(mut self, password: &S) -> Self {
                 self.extras.password = password.into();
+                self
+            }
+
+            fn gecos(&self) -> &OsStr {
+                &self.extras.gecos
+            }
+
+            fn with_gecos<S: AsRef<OsStr> + ?Sized>(mut self, gecos: &S) -> Self {
+                self.extras.gecos = gecos.into();
                 self
             }
         }
@@ -1272,6 +1295,15 @@ pub mod os {
 
             fn with_password<S: AsRef<OsStr> + ?Sized>(mut self, password: &S) -> Self {
                 self.extras.extras.password = password.into();
+                self
+            }
+
+            fn gecos(&self) -> &OsStr {
+                &self.extras.extras.gecos
+            }
+
+            fn with_gecos<S: AsRef<OsStr> + ?Sized>(mut self, gecos: &S) -> Self {
+                self.extras.extras.gecos = gecos.into();
                 self
             }
         }
