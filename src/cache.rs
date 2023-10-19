@@ -1,24 +1,16 @@
-//! A cache for users and groups provided by the OS.
+//! Caches for users and groups provided by the OS.
 //!
 //! Because the users table changes so infrequently, it's common for
 //! short-running programs to cache the results instead of getting the most
-//! up-to-date entries every time. The [`UsersCache`](struct.UsersCache.html)
-//! type helps with this, providing methods that have the same name as the
-//! others in this crate, only they store the results.
+//! up-to-date entries every time. This create offers two caching interfaces
+//! that help reduce system calls: [`UsersCache`](cache/struct.UsersCache.html)
+//! and [`UsersSnapshot`](cache/struct.UsersSnapshot.html). `UsersCache` is a
+//! lazy cache, storing answers as they arrive from the OS. `UsersSnapshot` is
+//! an eager cache, querying all data at once when constructed.
 //!
-//! ## Example
-//!
-//! ```no_run
-//! use std::sync::Arc;
-//! use uzers::{Users, UsersCache};
-//!
-//! let mut cache = UsersCache::new();
-//! let user      = cache.get_user_by_uid(502).expect("User not found");
-//! let same_user = cache.get_user_by_uid(502).unwrap();
-//!
-//! // The two returned values point to the same User
-//! assert!(Arc::ptr_eq(&user, &same_user));
-//! ```
+//! `UsersCache` has a smaller memory and performance overhead, while
+//! `UsersSnapshot` offers better consistency and allows iterating over users
+//! and groups.
 //!
 //! ## Caching, multiple threads, and mutability
 //!
@@ -98,7 +90,33 @@ use traits::{AllGroups, AllUsers, Groups, Users};
 
 /// A producer of user and group instances that caches every result.
 ///
-/// For more information, see the [`users::cache` module documentation](index.html).
+/// This cache is **only additive**: it’s not possible to drop it, or erase
+/// selected entries, as when the database may have been modified, it’s best to
+/// start entirely afresh. So to accomplish this, just start using a new
+/// `UsersCache`.
+///
+/// ## Example
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use uzers::{Users, UsersCache};
+///
+/// let mut cache = UsersCache::new();
+/// let user      = cache.get_user_by_uid(502).expect("User not found");
+/// let same_user = cache.get_user_by_uid(502).unwrap();
+///
+/// // The two returned values point to the same User
+/// assert!(Arc::ptr_eq(&user, &same_user));
+/// ```
+///
+/// ## See also
+///
+/// [`all_users`] and [`all_groups`] cannot be safely exposed in `UsersCache`,
+/// and lazy caching may introduce inconsistencies; see [`UsersSnapshot`] for
+/// an alternative.
+///
+/// For thread safety considerations, see the
+/// [`users::cache` module documentation](index.html#caching-multiple-threads-and-mutability).
 #[derive(Default)]
 pub struct UsersCache {
     users: RefCell<IdNameMap<uid_t, Arc<OsStr>, Arc<User>>>,
@@ -353,10 +371,50 @@ impl Groups for UsersCache {
     }
 }
 
-/// A container of user instances.
+/// A container of user and group instances.
 ///
-/// `UsersSnapshot` collects system user and group data eagerly.
-/// See [`UsersCache`] for a lazy cache.
+/// Included users and groups are determined by the method used to construct
+/// the snapshot:
+/// - [`UsersSnapshot::new()`] includes all system users and groups,
+/// - [`UsersSnapshot::only_users()`] filters users and includes only their
+///   primary groups,
+/// - [`UsersSnapshot::filtered()`] filters users and groups separately.
+///
+/// This cache is **immutable**: it's not possible to alter or refresh it in any
+/// way after creation. Create a new `UsersSnapshot` to see changes in the
+/// underlying system database.
+///
+/// ## Examples
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use uzers::{Users, UsersSnapshot};
+///
+/// let cache     = unsafe { UsersSnapshot::new() };
+/// let user      = cache.get_user_by_uid(502).expect("User not found");
+/// let same_user = cache.get_user_by_uid(502).unwrap();
+///
+/// // The two returned values point to the same User
+/// assert!(Arc::ptr_eq(&user, &same_user));
+/// ```
+///
+/// ```no_run
+/// use uzers::{AllUsers, UsersSnapshot};
+///
+/// // Exclude MacOS system users
+/// let cache = unsafe { UsersSnapshot::only_users(|u| u.uid() >= 500) };
+///
+/// // Users and groups can be iterated
+/// let user_count = cache.get_all_users().count();
+/// ```
+///
+/// ## See also
+///
+/// Unless iteration is required, [`UsersCache`] is likely safer, easier and
+/// faster.
+///
+/// For thread safety considerations, see the
+/// [`users::cache` module documentation](index.html#caching-multiple-threads-and-mutability).
 #[derive(Default)]
 pub struct UsersSnapshot {
     users: IdNameMap<uid_t, Arc<OsStr>, Arc<User>>,
@@ -413,6 +471,8 @@ impl UsersSnapshot {
     /// were attempted to be initialised on different threads at the same time.
     /// For more information, see the [`all_users` documentation](../fn.all_users.html).
     ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
     /// # Examples
     ///
     /// ```
@@ -423,6 +483,12 @@ impl UsersSnapshot {
     ///     UsersSnapshot::filtered(|u| u.uid() >= 1000, |_| true)
     /// };
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`UsersSnapshot::only_users()`] - if only primary groups of users are
+    ///   needed
+    /// - [`UsersSnapshot::new()`] - if no filtering is needed
     pub unsafe fn filtered<U, G>(user_filter: U, group_filter: G) -> Self
     where
         U: FnMut(&User) -> bool,
@@ -449,6 +515,8 @@ impl UsersSnapshot {
     /// were attempted to be initialised on different threads at the same time.
     /// For more information, see the [`all_users` documentation](../fn.all_users.html).
     ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
     /// # Examples
     ///
     /// ```
@@ -457,6 +525,11 @@ impl UsersSnapshot {
     /// // Include Linux system users and their primary groups
     /// let snapshot = unsafe { UsersSnapshot::only_users(|u| u.uid() < 1000) };
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`UsersSnapshot::filtered()`] - for more elaborate group filtering
+    /// - [`UsersSnapshot::new()`] - if no filtering is needed
     pub unsafe fn only_users<F>(user_filter: F) -> Self
     where
         F: FnMut(&User) -> bool,
@@ -488,6 +561,8 @@ impl UsersSnapshot {
     /// were attempted to be initialised on different threads at the same time.
     /// For more information, see the [`all_users` documentation](../fn.all_users.html).
     ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
     /// # Examples
     ///
     /// ```
@@ -495,6 +570,11 @@ impl UsersSnapshot {
     ///
     /// let snapshot = unsafe { UsersSnapshot::new() };
     /// ```
+    ///
+    /// # See also
+    ///
+    /// [`UsersSnapshot::only_users()`], [`UsersSnapshot::filtered()`] provide
+    /// performance benefits if only some users and groups will be needed.
     pub unsafe fn new() -> Self {
         Self::filtered(|_| true, |_| true)
     }

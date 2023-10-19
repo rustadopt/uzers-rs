@@ -54,7 +54,7 @@ pub trait AllUsers {
     where
         Self: 'a;
 
-    /// Creates a new iterator over every user present on the system.
+    /// Creates a new iterator over every user.
     fn get_all_users(&self) -> Self::UserIter<'_>;
 }
 
@@ -65,6 +65,6 @@ pub trait AllGroups {
     where
         Self: 'a;
 
-    /// Creates a new iterator over every group present on the system.
+    /// Creates a new iterator over every group.
     fn get_all_groups(&self) -> Self::GroupIter<'_>;
 }

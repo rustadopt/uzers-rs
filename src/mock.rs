@@ -34,7 +34,7 @@
 //!
 //! To set your program up to use either type of `Users` table, make your
 //! functions and structs accept a generic parameter that implements the `Users`
-//! trait. Then, you can pass in a value of either Cache or Mock type.
+//! trait. Then, you can pass in a value of either Cache, Snapshot or Mock type.
 //!
 //! Here’s a complete example:
 //!
@@ -55,6 +55,26 @@
 //! let mut actual_users = UsersCache::new();
 //! print_current_username(&mut actual_users);
 //! ```
+//!
+//! Include `AllUsers` in generic parameter bounds if iteration is required:
+//!
+//! ```
+//! use uzers::{AllUsers, User, Users, UsersSnapshot};
+//! use uzers::mock::MockUsers;
+//!
+//! fn print_all_users<U: Users + AllUsers>(users: &U) {
+//!     println!("All users:");
+//!     for user in users.get_all_users() {
+//!         println!("- {:?}", user.name());
+//!     }
+//! }
+//!
+//! let mut users = MockUsers::with_current_uid(1001);
+//! users.add_user(User::new(1001, "fred", 101));
+//! print_all_users(&users);
+//!
+//! let actual_users = unsafe { UsersSnapshot::new() };
+//! print_all_users(&users);
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
