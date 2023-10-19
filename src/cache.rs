@@ -93,8 +93,8 @@ use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use base::{all_users, Group, User};
-use traits::{AllUsers, Groups, Users};
+use base::{all_groups, all_users, Group, User};
+use traits::{AllGroups, AllUsers, Groups, Users};
 
 /// A producer of user and group instances that caches every result.
 ///
@@ -355,21 +355,32 @@ impl Groups for UsersCache {
 
 /// A container of user instances.
 ///
-/// `UsersSnapshot` collects system user data eagerly. See [`UsersCache`] for
-/// a lazy cache.
+/// `UsersSnapshot` collects system user and group data eagerly.
+/// See [`UsersCache`] for a lazy cache.
 #[derive(Default)]
 pub struct UsersSnapshot {
     users: IdNameMap<uid_t, Arc<OsStr>, Arc<User>>,
+    groups: IdNameMap<uid_t, Arc<OsStr>, Arc<Group>>,
 
     uid: uid_t,
+    gid: gid_t,
     euid: uid_t,
+    egid: gid_t,
 }
 
 impl UsersSnapshot {
-    /// Creates a new snapshot containing provided users.
-    pub(crate) fn from<U>(users: U, current_uid: uid_t, effective_uid: uid_t) -> Self
+    /// Creates a new snapshot containing provided users and groups.
+    pub(crate) fn from<U, G>(
+        users: U,
+        groups: G,
+        current_uid: uid_t,
+        current_gid: gid_t,
+        effective_uid: uid_t,
+        effective_gid: gid_t,
+    ) -> Self
     where
         U: Iterator<Item = User>,
+        G: Iterator<Item = Group>,
     {
         let mut user_map = IdNameMap::default();
 
@@ -377,14 +388,24 @@ impl UsersSnapshot {
             user_map.insert(user.uid(), Arc::clone(&user.name_arc), Arc::from(user));
         }
 
+        let mut group_map = IdNameMap::default();
+
+        for group in groups {
+            group_map.insert(group.gid(), Arc::clone(&group.name_arc), Arc::from(group));
+        }
+
         Self {
             users: user_map,
+            groups: group_map,
             uid: current_uid,
+            gid: current_gid,
             euid: effective_uid,
+            egid: effective_gid,
         }
     }
 
-    /// Creates a new snapshot containing all system users that pass the filter.
+    /// Creates a new snapshot containing all system users that pass the filter
+    /// and all system groups.
     ///
     /// # Safety
     ///
@@ -400,18 +421,22 @@ impl UsersSnapshot {
     /// // Exclude Linux system users
     /// let snapshot = unsafe { UsersSnapshot::filtered(|u| u.uid() >= 1000) };
     /// ```
+    // TODO: add a way to filter groups
     pub unsafe fn filtered<F>(filter: F) -> Self
     where
         F: FnMut(&User) -> bool,
     {
         Self::from(
             all_users().filter(filter),
+            all_groups(),
             super::get_current_uid(),
+            super::get_current_gid(),
             super::get_effective_uid(),
+            super::get_effective_gid(),
         )
     }
 
-    /// Creates a new snapshot containing all system users.
+    /// Creates a new snapshot containing all system users and groups.
     ///
     /// # Safety
     ///
@@ -473,5 +498,50 @@ impl Users for UsersSnapshot {
     fn get_effective_username(&self) -> Option<Arc<OsStr>> {
         self.get_user_by_uid(self.euid)
             .map(|u| Arc::clone(&u.name_arc))
+    }
+}
+
+impl AllGroups for UsersSnapshot {
+    type GroupIter<'a> = std::iter::FilterMap<
+        std::collections::hash_map::Values<'a, gid_t, Option<Arc<Group>>>,
+        for<'b> fn(&'b Option<Arc<Group>>) -> Option<&'b Group>,
+    >;
+
+    fn get_all_groups(&self) -> Self::GroupIter<'_> {
+        fn get_group(x: &Option<Arc<Group>>) -> Option<&Group> {
+            x.as_ref().map(Arc::deref)
+        }
+
+        self.groups.forward.values().filter_map(get_group)
+    }
+}
+
+impl Groups for UsersSnapshot {
+    fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>> {
+        self.groups.forward.get(&gid)?.as_ref().cloned()
+    }
+
+    fn get_group_by_name<S: AsRef<OsStr> + ?Sized>(&self, group_name: &S) -> Option<Arc<Group>> {
+        let name_arc = Arc::from(group_name.as_ref());
+        let gid = self.groups.backward.get(&name_arc)?.as_ref()?;
+        self.get_group_by_gid(*gid)
+    }
+
+    fn get_current_gid(&self) -> gid_t {
+        self.gid
+    }
+
+    fn get_current_groupname(&self) -> Option<Arc<OsStr>> {
+        self.get_group_by_gid(self.gid)
+            .map(|g| Arc::clone(&g.name_arc))
+    }
+
+    fn get_effective_gid(&self) -> gid_t {
+        self.egid
+    }
+
+    fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
+        self.get_group_by_gid(self.egid)
+            .map(|g| Arc::clone(&g.name_arc))
     }
 }

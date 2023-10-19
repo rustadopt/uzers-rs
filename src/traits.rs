@@ -57,3 +57,14 @@ pub trait AllUsers {
     /// Creates a new iterator over every user present on the system.
     fn get_all_users(&self) -> Self::UserIter<'_>;
 }
+
+/// Trait for providers of group iterators.
+pub trait AllGroups {
+    /// [`Group`] iterator returned by [`get_all_groups`][Self::get_all_groups].
+    type GroupIter<'a>: Iterator<Item = &'a Group>
+    where
+        Self: 'a;
+
+    /// Creates a new iterator over every group present on the system.
+    fn get_all_groups(&self) -> Self::GroupIter<'_>;
+}

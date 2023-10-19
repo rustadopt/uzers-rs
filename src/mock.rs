@@ -63,7 +63,7 @@ use std::sync::Arc;
 
 pub use base::{Group, User};
 pub use libc::{gid_t, uid_t};
-pub use traits::{AllUsers, Groups, Users};
+pub use traits::{AllGroups, AllUsers, Groups, Users};
 
 /// A mocking users table that you can add your own users and groups to.
 pub struct MockUsers {
@@ -159,6 +159,17 @@ impl AllUsers for MockUsers {
 
     fn get_all_users(&self) -> Self::UserIter<'_> {
         self.users.values().map(Arc::deref)
+    }
+}
+
+impl AllGroups for MockUsers {
+    type GroupIter<'a> = std::iter::Map<
+        std::collections::hash_map::Values<'a, gid_t, Arc<Group>>,
+        for<'b> fn(&'b Arc<Group>) -> &'b Group,
+    >;
+
+    fn get_all_groups(&self) -> Self::GroupIter<'_> {
+        self.groups.values().map(Arc::deref)
     }
 }
 

@@ -151,4 +151,4 @@ pub mod mock;
 pub mod switch;
 
 mod traits;
-pub use traits::{AllUsers, Groups, Users};
+pub use traits::{AllGroups, AllUsers, Groups, Users};
