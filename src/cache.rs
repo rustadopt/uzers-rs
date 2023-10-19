@@ -87,7 +87,7 @@
 use libc::{gid_t, uid_t};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -404,8 +404,8 @@ impl UsersSnapshot {
         }
     }
 
-    /// Creates a new snapshot containing all system users that pass the filter
-    /// and all system groups.
+    /// Creates a new snapshot containing all system users and groups that pass
+    /// the filter.
     ///
     /// # Safety
     ///
@@ -418,17 +418,61 @@ impl UsersSnapshot {
     /// ```
     /// use uzers::cache::UsersSnapshot;
     ///
-    /// // Exclude Linux system users
-    /// let snapshot = unsafe { UsersSnapshot::filtered(|u| u.uid() >= 1000) };
+    /// // Exclude Linux system users, include all groups
+    /// let snapshot = unsafe {
+    ///     UsersSnapshot::filtered(|u| u.uid() >= 1000, |_| true)
+    /// };
     /// ```
-    // TODO: add a way to filter groups
-    pub unsafe fn filtered<F>(filter: F) -> Self
+    pub unsafe fn filtered<U, G>(user_filter: U, group_filter: G) -> Self
+    where
+        U: FnMut(&User) -> bool,
+        G: FnMut(&Group) -> bool,
+    {
+        Self::from(
+            all_users().filter(user_filter),
+            all_groups().filter(group_filter),
+            super::get_current_uid(),
+            super::get_current_gid(),
+            super::get_effective_uid(),
+            super::get_effective_gid(),
+        )
+    }
+
+    /// Creates a new snapshot containing all system users that pass the filter
+    /// and their primary groups.
+    ///
+    /// Note that some primary groups may be missing on the system.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// // Include Linux system users and their primary groups
+    /// let snapshot = unsafe { UsersSnapshot::only_users(|u| u.uid() < 1000) };
+    /// ```
+    pub unsafe fn only_users<F>(user_filter: F) -> Self
     where
         F: FnMut(&User) -> bool,
     {
+        let users = all_users().filter(user_filter).collect::<Vec<_>>();
+        let primary_groups = users
+            .iter()
+            .map(User::primary_group_id)
+            .collect::<HashSet<_>>();
+        let groups = all_groups()
+            .filter(|g| primary_groups.contains(&g.gid()))
+            .collect::<Vec<_>>();
+
         Self::from(
-            all_users().filter(filter),
-            all_groups(),
+            users.into_iter(),
+            groups.into_iter(),
             super::get_current_uid(),
             super::get_current_gid(),
             super::get_effective_uid(),
@@ -452,7 +496,7 @@ impl UsersSnapshot {
     /// let snapshot = unsafe { UsersSnapshot::new() };
     /// ```
     pub unsafe fn new() -> Self {
-        Self::filtered(|_| true)
+        Self::filtered(|_| true, |_| true)
     }
 }
 
