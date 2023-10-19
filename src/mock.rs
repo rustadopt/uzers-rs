@@ -197,7 +197,7 @@ impl AllGroups for MockUsers {
 mod test {
     use super::MockUsers;
     use base::{Group, User};
-    use traits::{Groups, Users};
+    use traits::{AllGroups, AllUsers, Groups, Users};
 
     use std::ffi::OsStr;
     use std::sync::Arc;
@@ -252,6 +252,16 @@ mod test {
     }
 
     #[test]
+    fn all_users() {
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_user(User::new(1337, "fred", 101));
+        assert_eq!(
+            vec![1337],
+            users.get_all_users().map(|u| u.uid()).collect::<Vec<_>>()
+        )
+    }
+
+    #[test]
     fn gid() {
         let mut users = MockUsers::with_current_uid(0);
         users.add_group(Group::new(1337, "fred"));
@@ -285,6 +295,16 @@ mod test {
             users
                 .get_group_by_gid(1337)
                 .map(|g| Arc::clone(&g.name_arc))
+        )
+    }
+
+    #[test]
+    fn all_groups() {
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_group(Group::new(1337, "fred"));
+        assert_eq!(
+            vec![1337],
+            users.get_all_groups().map(|g| g.gid()).collect::<Vec<_>>()
         )
     }
 }
