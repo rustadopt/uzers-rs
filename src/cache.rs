@@ -185,7 +185,17 @@ impl UsersCache {
         Self::default()
     }
 
-    /// Creates a new cache that contains all the users present on the system.
+    /// Creates a new cache preloaded with all users present on the system.
+    ///
+    /// This is a legacy method for code where `UsersCache` is required.
+    /// Consider replacing this method with [`UsersSnapshot::new`] whereever
+    /// possible to improve performance and consistency.
+    ///
+    /// Only information about *existing* users and groups is preloaded.
+    /// Consequently, the following requests will still result in system calls:
+    /// - current UID/GID,
+    /// - effective UID/GID,
+    /// - users and groups that were not preloaded.
     ///
     /// # Safety
     ///
@@ -200,6 +210,10 @@ impl UsersCache {
     ///
     /// let cache = unsafe { UsersCache::with_all_users() };
     /// ```
+    ///
+    /// # See also
+    ///
+    /// [`UsersSnapshot::new`]
     pub unsafe fn with_all_users() -> Self {
         let cache = Self::new();
 
