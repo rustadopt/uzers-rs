@@ -1418,10 +1418,11 @@ mod test {
         // Not a real test but can be used to verify correct results
         // Use with --nocapture on test executable to show output
         println!(
-            "HOME={:?}, SHELL={:?}, PASSWD={:?}",
+            "HOME={:?}, SHELL={:?}, PASSWD={:?}, GECOS={:?}",
             user.home_dir(),
             user.shell(),
-            user.password()
+            user.password(),
+            user.gecos()
         );
     }
 
