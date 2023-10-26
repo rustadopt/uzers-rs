@@ -12,9 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - run: |
+          sudo apt update && sudo apt install -y libnss-wrapper
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
-        run: cargo test
+        env:
+          NSS_WRAPPER_PASSWD: tests/fixtures/passwd
+          NSS_WRAPPER_GROUP: tests/fixtures/group
+        run: |
+          cargo test
+          LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration mocked_
+          LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration --test '*'
 
   fmt:
     name: Rustfmt
