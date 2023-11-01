@@ -214,6 +214,7 @@ impl UsersCache {
     /// # See also
     ///
     /// [`UsersSnapshot::new`]
+    #[deprecated(since = "0.11.4", note = "consider using `UsersSnapshot::new` instead")]
     pub unsafe fn with_all_users() -> Self {
         let cache = Self::new();
 
