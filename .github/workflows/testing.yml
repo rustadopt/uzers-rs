@@ -1,0 +1,48 @@
+name: testing
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '.github/workflows/testing.yml'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '.github/workflows/testing.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test
+
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Generate code coverage
+        run: |
+          cargo tarpaulin --verbose --workspace
