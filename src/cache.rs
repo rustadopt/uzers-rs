@@ -1,24 +1,16 @@
-//! A cache for users and groups provided by the OS.
+//! Caches for users and groups provided by the OS.
 //!
 //! Because the users table changes so infrequently, it's common for
 //! short-running programs to cache the results instead of getting the most
-//! up-to-date entries every time. The [`UsersCache`](struct.UsersCache.html)
-//! type helps with this, providing methods that have the same name as the
-//! others in this crate, only they store the results.
+//! up-to-date entries every time. This create offers two caching interfaces
+//! that help reduce system calls: [`UsersCache`](cache/struct.UsersCache.html)
+//! and [`UsersSnapshot`](cache/struct.UsersSnapshot.html). `UsersCache` is a
+//! lazy cache, storing answers as they arrive from the OS. `UsersSnapshot` is
+//! an eager cache, querying all data at once when constructed.
 //!
-//! ## Example
-//!
-//! ```no_run
-//! use std::sync::Arc;
-//! use uzers::{Users, UsersCache};
-//!
-//! let mut cache = UsersCache::new();
-//! let user      = cache.get_user_by_uid(502).expect("User not found");
-//! let same_user = cache.get_user_by_uid(502).unwrap();
-//!
-//! // The two returned values point to the same User
-//! assert!(Arc::ptr_eq(&user, &same_user));
-//! ```
+//! `UsersCache` has a smaller memory and performance overhead, while
+//! `UsersSnapshot` offers better consistency and allows iterating over users
+//! and groups.
 //!
 //! ## Caching, multiple threads, and mutability
 //!
@@ -87,19 +79,48 @@
 use libc::{gid_t, uid_t};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
+use std::hash::Hash;
+use std::ops::Deref;
 use std::sync::Arc;
 
-use base::{all_users, Group, User};
-use traits::{Groups, Users};
+use base::{all_groups, all_users, Group, User};
+use traits::{AllGroups, AllUsers, Groups, Users};
 
 /// A producer of user and group instances that caches every result.
 ///
-/// For more information, see the [`users::cache` module documentation](index.html).
+/// This cache is **only additive**: it’s not possible to drop it, or erase
+/// selected entries, as when the database may have been modified, it’s best to
+/// start entirely afresh. So to accomplish this, just start using a new
+/// `UsersCache`.
+///
+/// ## Example
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use uzers::{Users, UsersCache};
+///
+/// let mut cache = UsersCache::new();
+/// let user      = cache.get_user_by_uid(502).expect("User not found");
+/// let same_user = cache.get_user_by_uid(502).unwrap();
+///
+/// // The two returned values point to the same User
+/// assert!(Arc::ptr_eq(&user, &same_user));
+/// ```
+///
+/// ## See also
+///
+/// [`all_users`] and [`all_groups`] cannot be safely exposed in `UsersCache`,
+/// and lazy caching may introduce inconsistencies; see [`UsersSnapshot`] for
+/// an alternative.
+///
+/// For thread safety considerations, see the
+/// [`users::cache` module documentation](index.html#caching-multiple-threads-and-mutability).
+#[derive(Default)]
 pub struct UsersCache {
-    users: BiMap<uid_t, User>,
-    groups: BiMap<gid_t, Group>,
+    users: RefCell<IdNameMap<uid_t, Arc<OsStr>, Arc<User>>>,
+    groups: RefCell<IdNameMap<gid_t, Arc<OsStr>, Arc<Group>>>,
 
     uid: Cell<Option<uid_t>>,
     gid: Cell<Option<gid_t>>,
@@ -114,31 +135,38 @@ pub struct UsersCache {
 /// only want to search based on usernames and group names. There wouldn’t be
 /// much point offering a “User to uid” map, as the uid is present in the
 /// `User` struct!
-struct BiMap<K, V> {
-    forward: RefCell<HashMap<K, Option<Arc<V>>>>,
-    backward: RefCell<HashMap<Arc<OsStr>, Option<K>>>,
+struct IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
+    forward: HashMap<I, Option<V>>,
+    backward: HashMap<N, Option<I>>,
 }
 
-// Default has to be impl’d manually here, because there’s no
-// Default impl on User or Group, even though those types aren’t
-// needed to produce a default instance of any HashMaps...
-impl Default for UsersCache {
+impl<I, N, V> IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
+    /// Creates a new entry.
+    fn insert(&mut self, id: I, name: N, value: V) {
+        self.forward.insert(id, Some(value));
+        self.backward.insert(name, Some(id));
+    }
+}
+
+// Cannot use `#[derive(Default)]` for `IdNameMap` because [`HashMap`] requires
+// some of its types to implement [`Default`].
+impl<I, N, V> Default for IdNameMap<I, N, V>
+where
+    I: Eq + Hash + Copy,
+    N: Eq + Hash,
+{
     fn default() -> Self {
         Self {
-            users: BiMap {
-                forward: RefCell::new(HashMap::new()),
-                backward: RefCell::new(HashMap::new()),
-            },
-
-            groups: BiMap {
-                forward: RefCell::new(HashMap::new()),
-                backward: RefCell::new(HashMap::new()),
-            },
-
-            uid: Cell::new(None),
-            gid: Cell::new(None),
-            euid: Cell::new(None),
-            egid: Cell::new(None),
+            forward: HashMap::new(),
+            backward: HashMap::new(),
         }
     }
 }
@@ -157,7 +185,17 @@ impl UsersCache {
         Self::default()
     }
 
-    /// Creates a new cache that contains all the users present on the system.
+    /// Creates a new cache preloaded with all users present on the system.
+    ///
+    /// This is a legacy method for code where `UsersCache` is required.
+    /// Consider replacing this method with [`UsersSnapshot::new`] whereever
+    /// possible to improve performance and consistency.
+    ///
+    /// Only information about *existing* users and groups is preloaded.
+    /// Consequently, the following requests will still result in system calls:
+    /// - current UID/GID,
+    /// - effective UID/GID,
+    /// - users and groups that were not preloaded.
     ///
     /// # Safety
     ///
@@ -172,22 +210,22 @@ impl UsersCache {
     ///
     /// let cache = unsafe { UsersCache::with_all_users() };
     /// ```
+    ///
+    /// # See also
+    ///
+    /// [`UsersSnapshot::new`]
+    #[deprecated(since = "0.11.4", note = "consider using `UsersSnapshot::new` instead")]
     pub unsafe fn with_all_users() -> Self {
         let cache = Self::new();
 
         for user in all_users() {
             let uid = user.uid();
             let user_arc = Arc::new(user);
-            cache
-                .users
-                .forward
-                .borrow_mut()
-                .insert(uid, Some(Arc::clone(&user_arc)));
-            cache
-                .users
-                .backward
-                .borrow_mut()
-                .insert(Arc::clone(&user_arc.name_arc), Some(uid));
+            cache.users.borrow_mut().insert(
+                uid,
+                Arc::clone(&user_arc.name_arc),
+                Arc::clone(&user_arc),
+            );
         }
 
         cache
@@ -202,20 +240,20 @@ impl UsersCache {
 
 impl Users for UsersCache {
     fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>> {
-        let mut users_forward = self.users.forward.borrow_mut();
+        let mut users = self.users.borrow_mut();
 
-        let entry = match users_forward.entry(uid) {
+        let entry = match users.forward.entry(uid) {
             Vacant(e) => e,
             Occupied(e) => return e.get().as_ref().map(Arc::clone),
         };
 
         if let Some(user) = super::get_user_by_uid(uid) {
             let newsername = Arc::clone(&user.name_arc);
-            let mut users_backward = self.users.backward.borrow_mut();
-            users_backward.insert(newsername, Some(uid));
-
             let user_arc = Arc::new(user);
+
             entry.insert(Some(Arc::clone(&user_arc)));
+            users.backward.insert(newsername, Some(uid));
+
             Some(user_arc)
         } else {
             entry.insert(None);
@@ -224,15 +262,12 @@ impl Users for UsersCache {
     }
 
     fn get_user_by_name<S: AsRef<OsStr> + ?Sized>(&self, username: &S) -> Option<Arc<User>> {
-        let mut users_backward = self.users.backward.borrow_mut();
+        let mut users = self.users.borrow_mut();
 
-        let entry = match users_backward.entry(Arc::from(username.as_ref())) {
+        let entry = match users.backward.entry(Arc::from(username.as_ref())) {
             Vacant(e) => e,
             Occupied(e) => {
-                return (*e.get()).and_then(|uid| {
-                    let users_forward = self.users.forward.borrow_mut();
-                    users_forward[&uid].as_ref().map(Arc::clone)
-                })
+                return (*e.get()).and_then(|uid| users.forward[&uid].as_ref().map(Arc::clone))
             }
         };
 
@@ -240,9 +275,8 @@ impl Users for UsersCache {
             let uid = user.uid();
             let user_arc = Arc::new(user);
 
-            let mut users_forward = self.users.forward.borrow_mut();
-            users_forward.insert(uid, Some(Arc::clone(&user_arc)));
             entry.insert(Some(uid));
+            users.forward.insert(uid, Some(Arc::clone(&user_arc)));
 
             Some(user_arc)
         } else {
@@ -280,20 +314,20 @@ impl Users for UsersCache {
 
 impl Groups for UsersCache {
     fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>> {
-        let mut groups_forward = self.groups.forward.borrow_mut();
+        let mut groups = self.groups.borrow_mut();
 
-        let entry = match groups_forward.entry(gid) {
+        let entry = match groups.forward.entry(gid) {
             Vacant(e) => e,
             Occupied(e) => return e.get().as_ref().map(Arc::clone),
         };
 
         if let Some(group) = super::get_group_by_gid(gid) {
             let new_group_name = Arc::clone(&group.name_arc);
-            let mut groups_backward = self.groups.backward.borrow_mut();
-            groups_backward.insert(new_group_name, Some(gid));
-
             let group_arc = Arc::new(group);
+
             entry.insert(Some(Arc::clone(&group_arc)));
+            groups.backward.insert(new_group_name, Some(gid));
+
             Some(group_arc)
         } else {
             entry.insert(None);
@@ -302,15 +336,12 @@ impl Groups for UsersCache {
     }
 
     fn get_group_by_name<S: AsRef<OsStr> + ?Sized>(&self, group_name: &S) -> Option<Arc<Group>> {
-        let mut groups_backward = self.groups.backward.borrow_mut();
+        let mut groups = self.groups.borrow_mut();
 
-        let entry = match groups_backward.entry(Arc::from(group_name.as_ref())) {
+        let entry = match groups.backward.entry(Arc::from(group_name.as_ref())) {
             Vacant(e) => e,
             Occupied(e) => {
-                return (*e.get()).and_then(|gid| {
-                    let groups_forward = self.groups.forward.borrow_mut();
-                    groups_forward[&gid].as_ref().cloned()
-                });
+                return (*e.get()).and_then(|gid| groups.forward[&gid].as_ref().cloned())
             }
         };
 
@@ -318,9 +349,8 @@ impl Groups for UsersCache {
             let group_arc = Arc::new(group.clone());
             let gid = group.gid();
 
-            let mut groups_forward = self.groups.forward.borrow_mut();
-            groups_forward.insert(gid, Some(Arc::clone(&group_arc)));
             entry.insert(Some(gid));
+            groups.forward.insert(gid, Some(Arc::clone(&group_arc)));
 
             Some(group_arc)
         } else {
@@ -353,5 +383,304 @@ impl Groups for UsersCache {
     fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
         let gid = self.get_effective_gid();
         self.get_group_by_gid(gid).map(|g| Arc::clone(&g.name_arc))
+    }
+}
+
+/// A container of user and group instances.
+///
+/// Included users and groups are determined by the method used to construct
+/// the snapshot:
+/// - [`UsersSnapshot::new()`] includes all system users and groups,
+/// - [`UsersSnapshot::only_users()`] filters users and includes only their
+///   primary groups,
+/// - [`UsersSnapshot::filtered()`] filters users and groups separately.
+///
+/// This cache is **immutable**: it's not possible to alter or refresh it in any
+/// way after creation. Create a new `UsersSnapshot` to see changes in the
+/// underlying system database.
+///
+/// ## Examples
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use uzers::{Users, UsersSnapshot};
+///
+/// let cache     = unsafe { UsersSnapshot::new() };
+/// let user      = cache.get_user_by_uid(502).expect("User not found");
+/// let same_user = cache.get_user_by_uid(502).unwrap();
+///
+/// // The two returned values point to the same User
+/// assert!(Arc::ptr_eq(&user, &same_user));
+/// ```
+///
+/// ```no_run
+/// use uzers::{AllUsers, UsersSnapshot};
+///
+/// // Exclude MacOS system users
+/// let cache = unsafe { UsersSnapshot::only_users(|u| u.uid() >= 500) };
+///
+/// // Users and groups can be iterated
+/// let user_count = cache.get_all_users().count();
+/// ```
+///
+/// ## See also
+///
+/// Unless iteration is required, [`UsersCache`] is likely safer, easier and
+/// faster.
+///
+/// For thread safety considerations, see the
+/// [`users::cache` module documentation](index.html#caching-multiple-threads-and-mutability).
+#[derive(Default)]
+pub struct UsersSnapshot {
+    users: IdNameMap<uid_t, Arc<OsStr>, Arc<User>>,
+    groups: IdNameMap<uid_t, Arc<OsStr>, Arc<Group>>,
+
+    uid: uid_t,
+    gid: gid_t,
+    euid: uid_t,
+    egid: gid_t,
+}
+
+impl UsersSnapshot {
+    /// Creates a new snapshot containing provided users and groups.
+    pub(crate) fn from<U, G>(
+        users: U,
+        groups: G,
+        current_uid: uid_t,
+        current_gid: gid_t,
+        effective_uid: uid_t,
+        effective_gid: gid_t,
+    ) -> Self
+    where
+        U: Iterator<Item = User>,
+        G: Iterator<Item = Group>,
+    {
+        let mut user_map = IdNameMap::default();
+
+        for user in users {
+            user_map.insert(user.uid(), Arc::clone(&user.name_arc), Arc::from(user));
+        }
+
+        let mut group_map = IdNameMap::default();
+
+        for group in groups {
+            group_map.insert(group.gid(), Arc::clone(&group.name_arc), Arc::from(group));
+        }
+
+        Self {
+            users: user_map,
+            groups: group_map,
+            uid: current_uid,
+            gid: current_gid,
+            euid: effective_uid,
+            egid: effective_gid,
+        }
+    }
+
+    /// Creates a new snapshot containing all system users and groups that pass
+    /// the filter.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// // Exclude Linux system users, include all groups
+    /// let snapshot = unsafe {
+    ///     UsersSnapshot::filtered(|u| u.uid() >= 1000, |_| true)
+    /// };
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`UsersSnapshot::only_users()`] - if only primary groups of users are
+    ///   needed
+    /// - [`UsersSnapshot::new()`] - if no filtering is needed
+    pub unsafe fn filtered<U, G>(user_filter: U, group_filter: G) -> Self
+    where
+        U: FnMut(&User) -> bool,
+        G: FnMut(&Group) -> bool,
+    {
+        Self::from(
+            all_users().filter(user_filter),
+            all_groups().filter(group_filter),
+            super::get_current_uid(),
+            super::get_current_gid(),
+            super::get_effective_uid(),
+            super::get_effective_gid(),
+        )
+    }
+
+    /// Creates a new snapshot containing all system users that pass the filter
+    /// and their primary groups.
+    ///
+    /// Note that some primary groups may be missing on the system.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// // Include Linux system users and their primary groups
+    /// let snapshot = unsafe { UsersSnapshot::only_users(|u| u.uid() < 1000) };
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`UsersSnapshot::filtered()`] - for more elaborate group filtering
+    /// - [`UsersSnapshot::new()`] - if no filtering is needed
+    pub unsafe fn only_users<F>(user_filter: F) -> Self
+    where
+        F: FnMut(&User) -> bool,
+    {
+        let users = all_users().filter(user_filter).collect::<Vec<_>>();
+        let primary_groups = users
+            .iter()
+            .map(User::primary_group_id)
+            .collect::<HashSet<_>>();
+        let groups = all_groups()
+            .filter(|g| primary_groups.contains(&g.gid()))
+            .collect::<Vec<_>>();
+
+        Self::from(
+            users.into_iter(),
+            groups.into_iter(),
+            super::get_current_uid(),
+            super::get_current_gid(),
+            super::get_effective_uid(),
+            super::get_effective_gid(),
+        )
+    }
+
+    /// Creates a new snapshot containing all system users and groups.
+    ///
+    /// # Safety
+    ///
+    /// This is `unsafe` because we cannot prevent data races if two caches
+    /// were attempted to be initialised on different threads at the same time.
+    /// For more information, see the [`all_users` documentation](../fn.all_users.html).
+    ///
+    /// Note that this method uses both [`all_users`] and [`all_groups`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uzers::cache::UsersSnapshot;
+    ///
+    /// let snapshot = unsafe { UsersSnapshot::new() };
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// [`UsersSnapshot::only_users()`], [`UsersSnapshot::filtered()`] provide
+    /// performance benefits if only some users and groups will be needed.
+    pub unsafe fn new() -> Self {
+        Self::filtered(|_| true, |_| true)
+    }
+}
+
+impl AllUsers for UsersSnapshot {
+    type UserIter<'a> = std::iter::FilterMap<
+        std::collections::hash_map::Values<'a, uid_t, Option<Arc<User>>>,
+        for<'b> fn(&'b Option<Arc<User>>) -> Option<&'b User>,
+    >;
+
+    fn get_all_users(&self) -> Self::UserIter<'_> {
+        fn get_user(x: &Option<Arc<User>>) -> Option<&User> {
+            x.as_ref().map(Arc::deref)
+        }
+
+        self.users.forward.values().filter_map(get_user)
+    }
+}
+
+impl Users for UsersSnapshot {
+    fn get_user_by_uid(&self, uid: uid_t) -> Option<Arc<User>> {
+        self.users.forward.get(&uid)?.as_ref().cloned()
+    }
+
+    fn get_user_by_name<S: AsRef<OsStr> + ?Sized>(&self, username: &S) -> Option<Arc<User>> {
+        let name_arc = Arc::from(username.as_ref());
+        let uid = self.users.backward.get(&name_arc)?.as_ref()?;
+        self.get_user_by_uid(*uid)
+    }
+
+    fn get_current_uid(&self) -> uid_t {
+        self.uid
+    }
+
+    fn get_current_username(&self) -> Option<Arc<OsStr>> {
+        self.get_user_by_uid(self.uid)
+            .map(|u| Arc::clone(&u.name_arc))
+    }
+
+    fn get_effective_uid(&self) -> uid_t {
+        self.euid
+    }
+
+    fn get_effective_username(&self) -> Option<Arc<OsStr>> {
+        self.get_user_by_uid(self.euid)
+            .map(|u| Arc::clone(&u.name_arc))
+    }
+}
+
+impl AllGroups for UsersSnapshot {
+    type GroupIter<'a> = std::iter::FilterMap<
+        std::collections::hash_map::Values<'a, gid_t, Option<Arc<Group>>>,
+        for<'b> fn(&'b Option<Arc<Group>>) -> Option<&'b Group>,
+    >;
+
+    fn get_all_groups(&self) -> Self::GroupIter<'_> {
+        fn get_group(x: &Option<Arc<Group>>) -> Option<&Group> {
+            x.as_ref().map(Arc::deref)
+        }
+
+        self.groups.forward.values().filter_map(get_group)
+    }
+}
+
+impl Groups for UsersSnapshot {
+    fn get_group_by_gid(&self, gid: gid_t) -> Option<Arc<Group>> {
+        self.groups.forward.get(&gid)?.as_ref().cloned()
+    }
+
+    fn get_group_by_name<S: AsRef<OsStr> + ?Sized>(&self, group_name: &S) -> Option<Arc<Group>> {
+        let name_arc = Arc::from(group_name.as_ref());
+        let gid = self.groups.backward.get(&name_arc)?.as_ref()?;
+        self.get_group_by_gid(*gid)
+    }
+
+    fn get_current_gid(&self) -> gid_t {
+        self.gid
+    }
+
+    fn get_current_groupname(&self) -> Option<Arc<OsStr>> {
+        self.get_group_by_gid(self.gid)
+            .map(|g| Arc::clone(&g.name_arc))
+    }
+
+    fn get_effective_gid(&self) -> gid_t {
+        self.egid
+    }
+
+    fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
+        self.get_group_by_gid(self.egid)
+            .map(|g| Arc::clone(&g.name_arc))
     }
 }

@@ -66,13 +66,20 @@
 //! medium-length one may get away with caching the values to save on redundant
 //! system calls.
 //!
-//! For this reason, this crate offers a caching interface to the database,
-//! which offers the same functionality while holding on to every result,
-//! caching the information so it can be re-used.
+//! For this reason, this create offers two caching interfaces that expose the
+//! same functionality while reducing system calls:
+//! [`UsersCache`](cache/struct.UsersCache.html) and
+//! [`UsersSnapshot`](cache/struct.UsersSnapshot.html). `UsersCache` is a lazy
+//! cache, storing answers as they arrive from the OS. `UsersSnapshot` is an
+//! eager cache, querying all data at once when constructed.
 //!
-//! To introduce a cache, create a new
+//! `UsersCache` has a smaller memory and performance overhead, while
+//! `UsersSnapshot` offers better consistency and allows iterating over users
+//! and groups.
+//!
+//! For example, to introduce a lazy cache, create a new
 //! [`UsersCache`](cache/struct.UsersCache.html). It has functions with the
-//! same names as the ones from earlier. For example:
+//! same names as the ones from earlier:
 //!
 //! ```
 //! use uzers::{Users, Groups, UsersCache};
@@ -83,10 +90,8 @@
 //! println!("Hello again, {}!", user.name().to_string_lossy());
 //! ```
 //!
-//! This cache is **only additive**: it’s not possible to drop it, or erase
-//! selected entries, as when the database may have been modified, it’s best to
-//! start entirely afresh. So to accomplish this, just start using a new
-//! `UsersCache`.
+//! See documentation for [`UsersCache`](cache/struct.UsersCache.html) and
+//! [`UsersSnapshot`](cache/struct.UsersSnapshot.html) for more details.
 //!
 //!
 //! ## Groups
@@ -143,6 +148,7 @@ pub mod cache;
 
 #[cfg(feature = "cache")]
 pub use cache::UsersCache;
+pub use cache::UsersSnapshot;
 
 #[cfg(feature = "mock")]
 pub mod mock;
@@ -150,4 +156,4 @@ pub mod mock;
 pub mod switch;
 
 mod traits;
-pub use traits::{Groups, Users};
+pub use traits::{AllGroups, AllUsers, Groups, Users};

@@ -34,7 +34,7 @@
 //!
 //! To set your program up to use either type of `Users` table, make your
 //! functions and structs accept a generic parameter that implements the `Users`
-//! trait. Then, you can pass in a value of either Cache or Mock type.
+//! trait. Then, you can pass in a value of either Cache, Snapshot or Mock type.
 //!
 //! Here’s a complete example:
 //!
@@ -55,14 +55,35 @@
 //! let mut actual_users = UsersCache::new();
 //! print_current_username(&mut actual_users);
 //! ```
+//!
+//! Include `AllUsers` in generic parameter bounds if iteration is required:
+//!
+//! ```
+//! use uzers::{AllUsers, User, Users, UsersSnapshot};
+//! use uzers::mock::MockUsers;
+//!
+//! fn print_all_users<U: Users + AllUsers>(users: &U) {
+//!     println!("All users:");
+//!     for user in users.get_all_users() {
+//!         println!("- {:?}", user.name());
+//!     }
+//! }
+//!
+//! let mut users = MockUsers::with_current_uid(1001);
+//! users.add_user(User::new(1001, "fred", 101));
+//! print_all_users(&users);
+//!
+//! let actual_users = unsafe { UsersSnapshot::new() };
+//! print_all_users(&users);
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub use base::{Group, User};
 pub use libc::{gid_t, uid_t};
-pub use traits::{Groups, Users};
+pub use traits::{AllGroups, AllUsers, Groups, Users};
 
 /// A mocking users table that you can add your own users and groups to.
 pub struct MockUsers {
@@ -150,11 +171,33 @@ impl Groups for MockUsers {
     }
 }
 
+impl AllUsers for MockUsers {
+    type UserIter<'a> = std::iter::Map<
+        std::collections::hash_map::Values<'a, uid_t, Arc<User>>,
+        for<'b> fn(&'b Arc<User>) -> &'b User,
+    >;
+
+    fn get_all_users(&self) -> Self::UserIter<'_> {
+        self.users.values().map(Arc::deref)
+    }
+}
+
+impl AllGroups for MockUsers {
+    type GroupIter<'a> = std::iter::Map<
+        std::collections::hash_map::Values<'a, gid_t, Arc<Group>>,
+        for<'b> fn(&'b Arc<Group>) -> &'b Group,
+    >;
+
+    fn get_all_groups(&self) -> Self::GroupIter<'_> {
+        self.groups.values().map(Arc::deref)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::MockUsers;
     use base::{Group, User};
-    use traits::{Groups, Users};
+    use traits::{AllGroups, AllUsers, Groups, Users};
 
     use std::ffi::OsStr;
     use std::sync::Arc;
@@ -209,6 +252,16 @@ mod test {
     }
 
     #[test]
+    fn all_users() {
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_user(User::new(1337, "fred", 101));
+        assert_eq!(
+            vec![1337],
+            users.get_all_users().map(|u| u.uid()).collect::<Vec<_>>()
+        )
+    }
+
+    #[test]
     fn gid() {
         let mut users = MockUsers::with_current_uid(0);
         users.add_group(Group::new(1337, "fred"));
@@ -242,6 +295,16 @@ mod test {
             users
                 .get_group_by_gid(1337)
                 .map(|g| Arc::clone(&g.name_arc))
+        )
+    }
+
+    #[test]
+    fn all_groups() {
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_group(Group::new(1337, "fred"));
+        assert_eq!(
+            vec![1337],
+            users.get_all_groups().map(|g| g.gid()).collect::<Vec<_>>()
         )
     }
 }
