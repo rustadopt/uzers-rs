@@ -17,6 +17,7 @@ default = ["cache", "mock", "logging"]
 cache = []
 mock = []
 logging = ["log"]
+test-integration = []
 
 [dependencies.libc]
 version = "0.2"
@@ -30,3 +31,6 @@ default_features = false
 version = "0.7"
 default_features = false
 features = []
+
+[dev_dependencies.serial_test]
+version = "^2.0"
