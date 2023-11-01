@@ -1,24 +1,6 @@
-name: testing
+name: Rust
 
-on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'src/**/*'
-      - 'tests/**/*'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.github/workflows/testing.yml'
-  pull_request:
-    branches:
-      - 'main'
-    paths:
-      - 'src/**/*'
-      - 'tests/**/*'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.github/workflows/testing.yml'
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,6 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - run: |
+          sudo apt update && sudo apt install -y libnss-wrapper
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         env:
@@ -39,6 +23,29 @@ jobs:
           cargo test
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration mocked_
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration --test '*'
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Enforce formatting
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linting
+        run: cargo clippy -- -D warnings
 
   coverage:
     name: Code coverage

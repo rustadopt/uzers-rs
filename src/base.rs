@@ -1433,3 +1433,65 @@ mod test {
         assert!(group.is_none());
     }
 }
+
+#[cfg(all(test, feature = "test-integration"))]
+mod mocked_test {
+    extern crate serial_test;
+
+    use self::serial_test::serial;
+
+    use super::{os::unix::GroupExt, *};
+
+    #[test]
+    #[serial]
+    fn mocked_username() {
+        let user = get_user_by_uid(1337).unwrap();
+
+        assert_eq!(user.name(), "fred");
+    }
+
+    #[test]
+    #[serial]
+    fn mocked_uid_for_uid() {
+        let user = get_user_by_uid(1337).unwrap();
+
+        assert_eq!(user.uid, 1337);
+    }
+
+    #[test]
+    #[serial]
+    fn mocked_user_by_name() {
+        let user_by_name = get_user_by_name("fred");
+
+        assert!(user_by_name.is_some());
+        assert_eq!(user_by_name.unwrap().name(), "fred");
+
+        // User names containing '\0' cannot be used (for now)
+        let user = get_user_by_name("user\0");
+        assert!(user.is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn mocked_group_by_name() {
+        let group_by_name = get_group_by_name("bosses");
+
+        assert!(group_by_name.is_some());
+        assert_eq!(group_by_name.unwrap().name(), "bosses");
+
+        // Group names containing '\0' cannot be used (for now)
+        let group = get_group_by_name("users\0");
+        assert!(group.is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn mocked_group_members() {
+        let group = get_group_by_gid(43).unwrap();
+        let members = group.members();
+
+        assert_eq!(members.len(), 2);
+        assert!(members.contains(&"bob".into()));
+        assert!(members.contains(&"martha".into()));
+    }
+}
