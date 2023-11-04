@@ -307,4 +307,34 @@ mod test {
             users.get_all_groups().map(|g| g.gid()).collect::<Vec<_>>()
         )
     }
+
+    #[test]
+    fn gecos() {
+        use crate::os::unix::UserExt;
+
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_user(User::new(1337, "fred", 101).with_gecos("Fred Santa"));
+
+        assert_eq!(
+            Some("Fred Santa".to_string()),
+            users
+                .get_user_by_uid(1337)
+                .map(|u| u.gecos().to_string_lossy().to_string())
+        );
+    }
+
+    #[test]
+    fn no_gecos() {
+        use crate::os::unix::UserExt;
+
+        let mut users = MockUsers::with_current_uid(1337);
+        users.add_user(User::new(1337, "fred", 101));
+
+        assert_eq!(
+            Some("".to_string()),
+            users
+                .get_user_by_uid(1337)
+                .map(|u| u.gecos().to_string_lossy().to_string())
+        );
+    }
 }
