@@ -3,22 +3,22 @@ name: testing
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - 'src/**/*'
-      - 'tests/**/*'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.github/workflows/testing.yml'
+      - "src/**/*"
+      - "tests/**/*"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/testing.yml"
   pull_request:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - 'src/**/*'
-      - 'tests/**/*'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.github/workflows/testing.yml'
+      - "src/**/*"
+      - "tests/**/*"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/testing.yml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,6 +36,7 @@ jobs:
           NSS_WRAPPER_PASSWD: tests/fixtures/passwd
           NSS_WRAPPER_GROUP: tests/fixtures/group
         run: |
+          sudo apt update && sudo apt install -y libnss-wrapper
           cargo test
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration mocked_
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration --test '*'
