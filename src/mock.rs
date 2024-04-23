@@ -130,7 +130,10 @@ impl Users for MockUsers {
     }
 
     fn get_current_username(&self) -> Option<Arc<OsStr>> {
-        self.users.get(&self.uid).map(|u| Arc::clone(&u.name_arc))
+        self.users
+            .get(&self.uid)
+            .cloned()
+            .map(|u| Arc::clone(&u.name_arc))
     }
 
     fn get_effective_uid(&self) -> uid_t {
@@ -138,7 +141,10 @@ impl Users for MockUsers {
     }
 
     fn get_effective_username(&self) -> Option<Arc<OsStr>> {
-        self.users.get(&self.uid).map(|u| Arc::clone(&u.name_arc))
+        self.users
+            .get(&self.uid)
+            .cloned()
+            .map(|u| Arc::clone(&u.name_arc))
     }
 }
 
@@ -159,7 +165,10 @@ impl Groups for MockUsers {
     }
 
     fn get_current_groupname(&self) -> Option<Arc<OsStr>> {
-        self.groups.get(&self.uid).map(|u| Arc::clone(&u.name_arc))
+        self.groups
+            .get(&self.uid)
+            .cloned()
+            .map(|u| Arc::clone(&u.name_arc))
     }
 
     fn get_effective_gid(&self) -> uid_t {
@@ -167,7 +176,10 @@ impl Groups for MockUsers {
     }
 
     fn get_effective_groupname(&self) -> Option<Arc<OsStr>> {
-        self.groups.get(&self.uid).map(|u| Arc::clone(&u.name_arc))
+        self.groups
+            .get(&self.uid)
+            .cloned()
+            .map(|u| Arc::clone(&u.name_arc))
     }
 }
 
