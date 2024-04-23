@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.0 - 2024-04-23
+
+### What's Changed
+- Added explicit references to os module in docs index
+- Add `AllUsers` and `AllGroups`
+- Test CI with nss_preload
+- Add GECOS field on UNIX systems
+- Add conventional commits workflow
+- Split general workflow into testing and linting
+
+
 ## [0.11.3] - 2023-09-11
 
 ### Bug Fixes
