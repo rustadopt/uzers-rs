@@ -244,7 +244,7 @@ impl Users for UsersCache {
 
         let entry = match users.forward.entry(uid) {
             Vacant(e) => e,
-            Occupied(e) => return e.get().as_ref().map(Arc::clone),
+            Occupied(e) => return e.get().clone(),
         };
 
         if let Some(user) = super::get_user_by_uid(uid) {
@@ -266,9 +266,7 @@ impl Users for UsersCache {
 
         let entry = match users.backward.entry(Arc::from(username.as_ref())) {
             Vacant(e) => e,
-            Occupied(e) => {
-                return (*e.get()).and_then(|uid| users.forward[&uid].as_ref().map(Arc::clone))
-            }
+            Occupied(e) => return (*e.get()).and_then(|uid| users.forward[&uid].clone()),
         };
 
         if let Some(user) = super::get_user_by_name(username) {
@@ -318,7 +316,7 @@ impl Groups for UsersCache {
 
         let entry = match groups.forward.entry(gid) {
             Vacant(e) => e,
-            Occupied(e) => return e.get().as_ref().map(Arc::clone),
+            Occupied(e) => return e.get().clone(),
         };
 
         if let Some(group) = super::get_group_by_gid(gid) {
