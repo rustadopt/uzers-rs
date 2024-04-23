@@ -25,7 +25,7 @@ This crate works with [Cargo](https://crates.io). Add the following to your `Car
 
 ```toml
 [dependencies]
-uzers = "0.11"
+uzers = "0.12"
 ```
 
 <!-- The earliest version of Rust that this crate is tested against is [Rust v1.31.0][rustc-url]. -->
