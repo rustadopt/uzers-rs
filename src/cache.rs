@@ -28,9 +28,9 @@
 //! and group lookups. Rust provides mutability in two ways:
 //!
 //! 1. Have its methods take `&mut self`, instead of `&self`, allowing the
-//!   internal maps to be mutated (“inherited mutability”)
+//!    internal maps to be mutated (“inherited mutability”)
 //! 2. Wrap the internal maps in a `RefCell`, allowing them to be modified
-//!   (“interior mutability”).
+//!    (“interior mutability”).
 //!
 //! Unfortunately, Rust is also very protective of references to a mutable
 //! value. In this case, switching to `&mut self` would only allow for one user
