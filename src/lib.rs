@@ -147,8 +147,7 @@ pub use base::{os, Group, User};
 pub mod cache;
 
 #[cfg(feature = "cache")]
-pub use cache::UsersCache;
-pub use cache::UsersSnapshot;
+pub use cache::{UsersCache, UsersSnapshot};
 
 #[cfg(feature = "mock")]
 pub mod mock;

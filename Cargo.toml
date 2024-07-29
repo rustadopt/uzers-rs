@@ -25,12 +25,12 @@ version = "0.2"
 [dependencies.log]
 version = "0.4"
 optional = true
-default_features = false
+default-features = false
 
-[dev_dependencies.env_logger]
+[dev-dependencies.env_logger]
 version = "0.7"
-default_features = false
+default-features = false
 features = []
 
-[dev_dependencies.serial_test]
+[dev-dependencies.serial_test]
 version = "^2.0"
