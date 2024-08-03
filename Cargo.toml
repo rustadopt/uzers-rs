@@ -33,4 +33,4 @@ default-features = false
 features = []
 
 [dev-dependencies.serial_test]
-version = "^2.0"
+version = "^3.1"
