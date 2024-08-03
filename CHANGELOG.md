@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.1 - 2024-08-03
+
+## Bug Fixes
+* Fix disabling the cache feature by @viperML in https://github.com/rustadopt/uzers-rs/pull/22
+
+## Updates
+* Update serial_test requirement from ^2.0 to ^3.1
+* Update env_logger requirement from 0.7 to 0.11
+
+
 ## 0.12.0 - 2024-04-23
 
 ### What's Changed
