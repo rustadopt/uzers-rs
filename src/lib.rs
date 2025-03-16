@@ -143,6 +143,9 @@ pub use base::{get_user_by_name, get_user_by_uid};
 pub use base::{get_user_groups, group_access_list};
 pub use base::{os, Group, User};
 
+#[cfg(target_os = "linux")]
+pub use base::{all_groups_from_file, all_users_from_file};
+
 #[cfg(feature = "cache")]
 pub mod cache;
 
