@@ -25,19 +25,86 @@ env:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: "Linux"
+            arch: "x86_64"
+            host: "ubuntu-latest"
+            toolchain: "stable"
+            run_unit_tests: true
+            run_integration_tests: true
+
+          # Test with nightly to preview future issues
+          - os: "Linux"
+            arch: "x86_64"
+            host: "ubuntu-latest"
+            toolchain: "nightly"
+            run_unit_tests: true
+            run_integration_tests: true
+
+          # Test minimum Rust version our crate builds with
+          - os: "Linux"
+            arch: "x86_64"
+            host: "ubuntu-latest"
+            toolchain: "1.65.0"
+            # Tests depend on env_logger, which has an MSRV of 1.71.0
+            run_unit_tests: false
+            run_integration_tests: false
+
+          # Test minimum Rust version our tests pass on
+          - os: "Linux"
+            arch: "x86_64"
+            host: "ubuntu-latest"
+            toolchain: "1.71.0"
+            run_unit_tests: true
+            run_integration_tests: true
+
+          - os: "Linux"
+            arch: "arm64"
+            host: "ubuntu-24.04-arm"
+            toolchain: "stable"
+            run_unit_tests: true
+            run_integration_tests: true
+
+          - os: "macOS"
+            arch: "arm64"
+            host: "macos-latest"
+            toolchain: "stable"
+            run_unit_tests: true
+            # We aren't yet ready to run integration tests on macOS; will need to figure out nss wrapper.
+            run_integration_tests: false
+
+    name: "Test (${{ matrix.os }}/${{ matrix.arch }}/${{ matrix.toolchain }})"
+    runs-on: ${{ matrix.host }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
       - uses: Swatinem/rust-cache@v2
-      - name: Run tests
+        with:
+          key: ${{ matrix.host }}-${{ matrix.toolchain }}
+
+      - name: Build default targets
+        run: |
+          cargo build
+
+      - name: Run unit tests
+        if: ${{ matrix.run_unit_tests }}
+        run: |
+          cargo test
+
+      - name: Run integration tests
+        if: ${{ matrix.run_integration_tests }}
         env:
           NSS_WRAPPER_PASSWD: tests/fixtures/passwd
           NSS_WRAPPER_GROUP: tests/fixtures/group
         run: |
           sudo apt update && sudo apt install -y libnss-wrapper
-          cargo test
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration mocked_
           LD_PRELOAD=libnss_wrapper.so cargo test --features test-integration --test '*'
 
