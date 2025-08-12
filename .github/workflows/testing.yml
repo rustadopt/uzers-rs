@@ -79,7 +79,7 @@ jobs:
     name: "Test (${{ matrix.os }}/${{ matrix.arch }}/${{ matrix.toolchain }})"
     runs-on: ${{ matrix.host }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -116,7 +116,7 @@ jobs:
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Generate code coverage
         run: |
           cargo tarpaulin --verbose --workspace
