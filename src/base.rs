@@ -926,7 +926,9 @@ pub fn all_users() -> impl Iterator<Item = User> {
 /// ```
 #[cfg(target_os = "linux")]
 pub fn all_users_from_file<S: AsRef<str>>(passwd_file_path: S) -> impl Iterator<Item = User> {
-    let mut result = AllUsers { file: std::ptr::null_mut() };
+    let mut result = AllUsers {
+        file: std::ptr::null_mut(),
+    };
 
     let file_path = CString::new(passwd_file_path.as_ref()).unwrap();
     result.file = unsafe { libc::fopen(file_path.as_ptr(), CString::new("r").unwrap().as_ptr()) };
@@ -1001,8 +1003,8 @@ impl Iterator for AllUsers {
 
         // Create the buffers we need.
         let mut buffer = vec![0; buffer_len];
-        let buffer_ptr = buffer.as_mut_ptr() as  *mut c_char;
-        let mut pwd = c_passwd{
+        let buffer_ptr = buffer.as_mut_ptr() as *mut c_char;
+        let mut pwd = c_passwd {
             pw_name: std::ptr::null_mut(),
             pw_passwd: std::ptr::null_mut(),
             pw_uid: 0,
@@ -1014,7 +1016,8 @@ impl Iterator for AllUsers {
 
         // Call fgetpwent_r to read the next entry.
         let mut result = ptr::null_mut();
-        let ret = unsafe { libc::fgetpwent_r(self.file, &mut pwd, buffer_ptr, buffer_len, &mut result) };
+        let ret =
+            unsafe { libc::fgetpwent_r(self.file, &mut pwd, buffer_ptr, buffer_len, &mut result) };
         if ret != 0 || result.is_null() || result != &mut pwd {
             // We expect to get a pointer to `pwd` back; in any other case, we can't safely proceed.
             return None;
@@ -1121,7 +1124,9 @@ pub fn all_groups() -> impl Iterator<Item = Group> {
 /// ```
 #[cfg(target_os = "linux")]
 pub fn all_groups_from_file<S: AsRef<str>>(file_path: S) -> impl Iterator<Item = Group> {
-    let mut result = AllGroups { file: std::ptr::null_mut() };
+    let mut result = AllGroups {
+        file: std::ptr::null_mut(),
+    };
 
     let file_path = CString::new(file_path.as_ref()).unwrap();
     result.file = unsafe { libc::fopen(file_path.as_ptr(), CString::new("r").unwrap().as_ptr()) };
@@ -1196,8 +1201,8 @@ impl Iterator for AllGroups {
 
         // Create the buffers we need.
         let mut buffer = vec![0; buffer_len];
-        let buffer_ptr = buffer.as_mut_ptr() as  *mut c_char;
-        let mut group = c_group{
+        let buffer_ptr = buffer.as_mut_ptr() as *mut c_char;
+        let mut group = c_group {
             gr_name: std::ptr::null_mut(),
             gr_passwd: std::ptr::null_mut(),
             gr_gid: 0,
@@ -1206,7 +1211,9 @@ impl Iterator for AllGroups {
 
         // Call fgetgrent_r to read the next entry.
         let mut result = ptr::null_mut();
-        let ret = unsafe { libc::fgetgrent_r(self.file, &mut group, buffer_ptr, buffer_len, &mut result) };
+        let ret = unsafe {
+            libc::fgetgrent_r(self.file, &mut group, buffer_ptr, buffer_len, &mut result)
+        };
         if ret != 0 || result.is_null() || result != &mut group {
             // We expect to get a pointer to `group` back; in any other case, we can't safely proceed.
             return None;
