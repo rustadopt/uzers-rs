@@ -48,7 +48,7 @@ jobs:
           - os: "Linux"
             arch: "x86_64"
             host: "ubuntu-latest"
-            toolchain: "1.65.0"
+            toolchain: "1.68.0"
             # Tests depend on env_logger, which has an MSRV of 1.71.0
             run_unit_tests: false
             run_integration_tests: false
