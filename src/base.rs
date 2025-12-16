@@ -29,6 +29,7 @@
 //! best bet is to check for them yourself before passing strings into any
 //! functions.
 
+use std::convert::TryFrom;
 use std::ffi::{CStr, CString, OsStr, OsString};
 use std::fmt;
 use std::io;
@@ -829,7 +830,10 @@ pub fn get_user_groups<S: AsRef<OsStr> + ?Sized>(username: &S, gid: gid_t) -> Op
 }
 
 /// An iterator over every user present on the system.
-struct AllUsers;
+struct AllUsers {
+    #[cfg(target_os = "linux")]
+    file: *mut libc::FILE,
+}
 
 /// Creates a new iterator over every user present on the system.
 ///
@@ -868,13 +872,68 @@ struct AllUsers;
 ///     println!("User #{} ({:?})", user.uid(), user.name());
 /// }
 /// ```
+#[cfg(not(target_os = "linux"))]
 pub unsafe fn all_users() -> impl Iterator<Item = User> {
     #[cfg(feature = "logging")]
     trace!("Running setpwent");
 
     #[cfg(not(target_os = "android"))]
     libc::setpwent();
-    AllUsers
+
+    AllUsers {}
+}
+
+/// Creates a new iterator over every user present on the system.
+///
+/// # libc functions used
+///
+/// - [`fopen`](https://docs.rs/libc/*/libc/fn.fopen.html)
+/// - [`fgetpwent_r`](https://docs.rs/libc/*/libc/fn.fgetpwent_r.html)
+/// - [`fclose`](https://docs.rs/libc/*/libc/fn.fclose.html)
+///
+/// # Examples
+///
+/// ```
+/// use uzers::all_users;
+///
+/// let iter = all_users();
+/// for user in iter {
+///     println!("User #{} ({:?})", user.uid(), user.name());
+/// }
+/// ```
+#[cfg(target_os = "linux")]
+pub fn all_users() -> impl Iterator<Item = User> {
+    all_users_from_file("/etc/passwd")
+}
+
+/// Creates a new iterator over every user defined in the given passwd file.
+///
+/// # libc functions used
+///
+/// - [`fopen`](https://docs.rs/libc/*/libc/fn.fopen.html)
+/// - [`fgetpwent_r`](https://docs.rs/libc/*/libc/fn.fgetpwent_r.html)
+/// - [`fclose`](https://docs.rs/libc/*/libc/fn.fclose.html)
+///
+/// # Examples
+///
+/// ```
+/// use uzers::all_users_from_file;
+///
+/// let iter = all_users_from_file("mypasswd");
+/// for user in iter {
+///     println!("User #{} ({:?})", user.uid(), user.name());
+/// }
+/// ```
+#[cfg(target_os = "linux")]
+pub fn all_users_from_file<S: AsRef<str>>(passwd_file_path: S) -> impl Iterator<Item = User> {
+    let mut result = AllUsers {
+        file: std::ptr::null_mut(),
+    };
+
+    let file_path = CString::new(passwd_file_path.as_ref()).unwrap();
+    result.file = unsafe { libc::fopen(file_path.as_ptr(), CString::new("r").unwrap().as_ptr()) };
+
+    result
 }
 
 impl Drop for AllUsers {
@@ -883,12 +942,19 @@ impl Drop for AllUsers {
         // nothing to do here
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
     fn drop(&mut self) {
         #[cfg(feature = "logging")]
         trace!("Running endpwent");
 
         unsafe { libc::endpwent() };
+    }
+
+    #[cfg(target_os = "linux")]
+    fn drop(&mut self) {
+        if !self.file.is_null() {
+            unsafe { libc::fclose(self.file) };
+        }
     }
 }
 
@@ -900,7 +966,7 @@ impl Iterator for AllUsers {
         None
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
     fn next(&mut self) -> Option<User> {
         #[cfg(feature = "logging")]
         trace!("Running getpwent");
@@ -914,10 +980,59 @@ impl Iterator for AllUsers {
             Some(user)
         }
     }
+
+    #[cfg(target_os = "linux")]
+    fn next(&mut self) -> Option<User> {
+        if self.file.is_null() {
+            // We weren't able to open the backing file, so we have no users to return.
+            return None;
+        }
+
+        // Compute the maximum size of the buffer.
+        let buffer_len = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };
+        if buffer_len == -1 {
+            // We couldn't compute the required buffer size, so we can't read the user.
+            return None;
+        }
+
+        let buffer_len = usize::try_from(buffer_len).unwrap_or(0);
+        if buffer_len == 0 {
+            // The buffer size was invalid, we can't proceed.
+            return None;
+        }
+
+        // Create the buffers we need.
+        let mut buffer = vec![0; buffer_len];
+        let buffer_ptr = buffer.as_mut_ptr() as *mut c_char;
+        let mut pwd = c_passwd {
+            pw_name: std::ptr::null_mut(),
+            pw_passwd: std::ptr::null_mut(),
+            pw_uid: 0,
+            pw_gid: 0,
+            pw_gecos: std::ptr::null_mut(),
+            pw_dir: std::ptr::null_mut(),
+            pw_shell: std::ptr::null_mut(),
+        };
+
+        // Call fgetpwent_r to read the next entry.
+        let mut result = ptr::null_mut();
+        let ret =
+            unsafe { libc::fgetpwent_r(self.file, &mut pwd, buffer_ptr, buffer_len, &mut result) };
+        if ret != 0 || result.is_null() || result != &mut pwd {
+            // We expect to get a pointer to `pwd` back; in any other case, we can't safely proceed.
+            return None;
+        }
+
+        // Parse the struct and return it.
+        Some(unsafe { passwd_to_user(result.read()) })
+    }
 }
 
 /// An iterator over every group present on the system.
-struct AllGroups;
+struct AllGroups {
+    #[cfg(target_os = "linux")]
+    file: *mut libc::FILE,
+}
 
 /// Creates a new iterator over every group present on the system.
 ///
@@ -956,13 +1071,67 @@ struct AllGroups;
 ///     println!("Group #{} ({:?})", group.gid(), group.name());
 /// }
 /// ```
+#[cfg(not(target_os = "linux"))]
 pub unsafe fn all_groups() -> impl Iterator<Item = Group> {
     #[cfg(feature = "logging")]
     trace!("Running setgrent");
 
     #[cfg(not(target_os = "android"))]
     libc::setgrent();
-    AllGroups
+    AllGroups {}
+}
+
+/// Creates a new iterator over every group present on the system.
+///
+/// # libc functions used
+///
+/// - [`fopen`](https://docs.rs/libc/*/libc/fn.fopen.html)
+/// - [`fgetgrent_r`](https://docs.rs/libc/*/libc/fn.fgetgrent_r.html)
+/// - [`fclose`](https://docs.rs/libc/*/libc/fn.fclose.html)
+///
+/// # Examples
+///
+/// ```
+/// use uzers::all_groups;
+///
+/// let iter = all_groups();
+/// for group in iter {
+///     println!("Group #{} ({:?})", group.gid(), group.name());
+/// }
+/// ```
+#[cfg(target_os = "linux")]
+pub fn all_groups() -> impl Iterator<Item = Group> {
+    all_groups_from_file("/etc/group")
+}
+
+/// Creates a new iterator over every group present in the provided group file.
+///
+/// # libc functions used
+///
+/// - [`fopen`](https://docs.rs/libc/*/libc/fn.fopen.html)
+/// - [`fgetgrent_r`](https://docs.rs/libc/*/libc/fn.fgetgrent_r.html)
+/// - [`fclose`](https://docs.rs/libc/*/libc/fn.fclose.html)
+///
+/// # Examples
+///
+/// ```
+/// use uzers::all_groups_from_file;
+///
+/// let iter = all_groups_from_file("mygroup");
+/// for group in iter {
+///     println!("Group #{} ({:?})", group.gid(), group.name());
+/// }
+/// ```
+#[cfg(target_os = "linux")]
+pub fn all_groups_from_file<S: AsRef<str>>(file_path: S) -> impl Iterator<Item = Group> {
+    let mut result = AllGroups {
+        file: std::ptr::null_mut(),
+    };
+
+    let file_path = CString::new(file_path.as_ref()).unwrap();
+    result.file = unsafe { libc::fopen(file_path.as_ptr(), CString::new("r").unwrap().as_ptr()) };
+
+    result
 }
 
 impl Drop for AllGroups {
@@ -971,12 +1140,19 @@ impl Drop for AllGroups {
         // nothing to do here
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
     fn drop(&mut self) {
         #[cfg(feature = "logging")]
         trace!("Running endgrent");
 
         unsafe { libc::endgrent() };
+    }
+
+    #[cfg(target_os = "linux")]
+    fn drop(&mut self) {
+        if !self.file.is_null() {
+            unsafe { libc::fclose(self.file) };
+        }
     }
 }
 
@@ -988,7 +1164,7 @@ impl Iterator for AllGroups {
         None
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
     fn next(&mut self) -> Option<Group> {
         #[cfg(feature = "logging")]
         trace!("Running getgrent");
@@ -1001,6 +1177,50 @@ impl Iterator for AllGroups {
             let group = unsafe { struct_to_group(result.read()) };
             Some(group)
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn next(&mut self) -> Option<Group> {
+        if self.file.is_null() {
+            // We weren't able to open the backing file, so we have no groups to return.
+            return None;
+        }
+
+        // Compute the maximum size of the buffer.
+        let buffer_len = unsafe { libc::sysconf(libc::_SC_GETGR_R_SIZE_MAX) };
+        if buffer_len == -1 {
+            // We couldn't compute the required buffer size, so we can't read the group.
+            return None;
+        }
+
+        let buffer_len = usize::try_from(buffer_len).unwrap_or(0);
+        if buffer_len == 0 {
+            // The buffer size was invalid, we can't proceed.
+            return None;
+        }
+
+        // Create the buffers we need.
+        let mut buffer = vec![0; buffer_len];
+        let buffer_ptr = buffer.as_mut_ptr() as *mut c_char;
+        let mut group = c_group {
+            gr_name: std::ptr::null_mut(),
+            gr_passwd: std::ptr::null_mut(),
+            gr_gid: 0,
+            gr_mem: std::ptr::null_mut(),
+        };
+
+        // Call fgetgrent_r to read the next entry.
+        let mut result = ptr::null_mut();
+        let ret = unsafe {
+            libc::fgetgrent_r(self.file, &mut group, buffer_ptr, buffer_len, &mut result)
+        };
+        if ret != 0 || result.is_null() || result != &mut group {
+            // We expect to get a pointer to `group` back; in any other case, we can't safely proceed.
+            return None;
+        }
+
+        // Parse the struct and return it.
+        Some(unsafe { struct_to_group(result.read()) })
     }
 }
 
