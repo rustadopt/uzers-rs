@@ -2,12 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.2 - 2025-12-16
+
+### Features
+
+* Add hurd to target_os lists
+
+### CI
+
+* Increase minimum Rust build version in CI to 1.68.
+* Split into unit and integration test and add more platforms.
+* Bump actions/checkout from 4 to 6
+
+### Testing
+
+* Add test_all_users and test_all_groups
+
 ## 0.12.1 - 2024-08-03
 
-## Bug Fixes
+### Bug Fixes
 * Fix disabling the cache feature by @viperML in https://github.com/rustadopt/uzers-rs/pull/22
 
-## Updates
+### Updates
 * Update serial_test requirement from ^2.0 to ^3.1
 * Update env_logger requirement from 0.7 to 0.11
 
